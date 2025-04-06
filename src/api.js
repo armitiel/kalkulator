@@ -1,5 +1,6 @@
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://kalkulator-tsq.vercel.app/api' 
+// Dynamicznie określ bazowy URL API na podstawie środowiska
+const API_URL = process.env.NODE_ENV === 'production'
+  ? `${window.location.origin}/api`
   : 'http://localhost:5000/api';
 
 // Funkcje pomocnicze do obsługi API
