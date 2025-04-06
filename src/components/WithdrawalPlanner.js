@@ -284,7 +284,7 @@ const WithdrawalPlanner = ({
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">Planowanie wypłat</h2>
+        <h2 className="text-xl font-bold">{translations[selectedLanguage].withdrawalPlanning}</h2>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
             <Calendar className="text-blue-600" size={20} />
@@ -293,9 +293,9 @@ const WithdrawalPlanner = ({
               onChange={(e) => updateWithdrawalPlan({ projectionMonths: Number(e.target.value) })}
               className="border-2 border-blue-200 rounded-md p-2 bg-white text-blue-600 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value={3}>3 miesiące</option>
-              <option value={6}>6 miesięcy</option>
-              <option value={12}>12 miesięcy</option>
+              <option value={3}>3 {translations[selectedLanguage].months[3]}</option>
+              <option value={6}>6 {translations[selectedLanguage].months[5]}</option>
+              <option value={12}>12 {translations[selectedLanguage].months[5]}</option>
             </select>
           </div>
         </div>
