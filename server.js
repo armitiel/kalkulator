@@ -5,10 +5,61 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = 'tsq-investment-secret-key'; // W produkcji należy użyć zmiennej środowiskowej
+const PASSWORD_RESET_SECRET = 'tsq-password-reset-secret-key'; // Osobny sekret dla tokenów resetowania hasła
+
+// Konfiguracja transportera poczty
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.example.com',
+  port: process.env.EMAIL_PORT || 587,
+  secure: false, // true dla 465, false dla innych portów
+  auth: {
+    user: process.env.EMAIL_USER || 'user@example.com', // w produkcji użyj zmiennych środowiskowych
+    pass: process.env.EMAIL_PASS || 'password', // w produkcji użyj zmiennych środowiskowych
+  },
+});
+
+// Funkcja wysyłająca email resetowania hasła
+async function sendPasswordResetEmail(email, resetToken) {
+  // URL do strony resetowania hasła (w aplikacji frontendowej)
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+  
+  try {
+    // W środowisku produkcyjnym wysyłamy email
+    if (process.env.NODE_ENV === 'production') {
+      await transporter.sendMail({
+        from: '"Investment Tracker" <noreply@investment-tracker.com>',
+        to: email,
+        subject: 'Resetowanie hasła',
+        text: `Aby zresetować hasło, kliknij w poniższy link: ${resetUrl}`,
+        html: `
+          <div>
+            <h1>Resetowanie hasła</h1>
+            <p>Aby zresetować swoje hasło, kliknij w poniższy link:</p>
+            <p><a href="${resetUrl}">Resetuj hasło</a></p>
+            <p>Link jest ważny przez 1 godzinę.</p>
+            <p>Jeśli nie prosiłeś o reset hasła, zignoruj tę wiadomość.</p>
+          </div>
+        `,
+      });
+      return { success: true };
+    } 
+    // W środowisku deweloperskim, zwracamy token i logujemy do konsoli
+    else {
+      console.log(`[DEV MODE] Sending password reset email to ${email}`);
+      console.log(`[DEV MODE] Reset URL: ${resetUrl}`);
+      console.log(`[DEV MODE] Reset token: ${resetToken}`);
+      return { success: true, resetToken, resetUrl };
+    }
+  } catch (error) {
+    console.error('Błąd podczas wysyłania emaila:', error);
+    return { success: false, error: error.message };
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -86,6 +137,29 @@ app.post('/api/register', async (req, res) => {
 
   if (!username || !password) {
     return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
+  }
+
+  // Walidacja formatu adresu email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(username)) {
+    return res.status(400).json({ message: 'Podaj prawidłowy adres email' });
+  }
+
+  // Walidacja hasła
+  if (password.length < 8) {
+    return res.status(400).json({ message: 'Hasło musi mieć co najmniej 8 znaków' });
+  }
+
+  // Sprawdzenie, czy hasło zawiera:
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+  if (!(hasUpperCase && hasLowerCase && hasDigit && hasSpecialChar)) {
+    return res.status(400).json({ 
+      message: 'Hasło musi zawierać dużą literę, małą literę, cyfrę i znak specjalny' 
+    });
   }
 
   try {
@@ -381,6 +455,116 @@ app.delete('/api/transactions/:id', authenticateToken, (req, res) => {
       });
     }
   );
+});
+
+// Endpoint żądania resetowania hasła
+app.post('/api/reset-password-request', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ message: 'Adres email jest wymagany' });
+  }
+  
+  // Walidacja formatu adresu email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Podaj prawidłowy adres email' });
+  }
+  
+  try {
+    // Znajdź użytkownika po emailu
+    db.get('SELECT * FROM users WHERE username = ?', [email], async (err, user) => {
+      // Zawsze zwracaj sukces, nawet jeśli użytkownik nie istnieje (względy bezpieczeństwa)
+      if (err || !user) {
+        console.log(`Próba resetowania hasła dla nieistniejącego konta: ${email}`);
+        return res.json({ message: 'Jeśli konto istnieje, instrukcje resetowania hasła zostały wysłane na podany adres email.' });
+      }
+      
+      // Generuj token resetowania (ważny przez 1 godzinę)
+      const resetToken = jwt.sign(
+        { id: user.id, username: user.username, type: 'password_reset' }, 
+        PASSWORD_RESET_SECRET, 
+        { expiresIn: '1h' }
+      );
+      
+      // Wyślij email z instrukcjami resetowania hasła
+      const emailResult = await sendPasswordResetEmail(user.username, resetToken);
+      
+      res.json({ 
+        message: 'Jeśli konto istnieje, instrukcje resetowania hasła zostały wysłane na podany adres email.',
+        // W trybie deweloperskim zwracamy również token i URL do testów
+        ...(!process.env.NODE_ENV === 'production' ? { 
+          resetToken, 
+          resetUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+        } : {})
+      });
+    });
+  } catch (error) {
+    console.error('Błąd podczas przetwarzania żądania resetowania hasła:', error);
+    res.status(500).json({ message: 'Wystąpił błąd serwera' });
+  }
+});
+
+// Endpoint do ustawiania nowego hasła
+app.post('/api/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token i nowe hasło są wymagane' });
+  }
+  
+  // Walidacja hasła
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: 'Hasło musi mieć co najmniej 8 znaków' });
+  }
+  
+  // Sprawdzenie, czy hasło zawiera:
+  const hasUpperCase = /[A-Z]/.test(newPassword);
+  const hasLowerCase = /[a-z]/.test(newPassword);
+  const hasDigit = /\d/.test(newPassword);
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword);
+  
+  if (!(hasUpperCase && hasLowerCase && hasDigit && hasSpecialChar)) {
+    return res.status(400).json({ 
+      message: 'Hasło musi zawierać dużą literę, małą literę, cyfrę i znak specjalny' 
+    });
+  }
+  
+  try {
+    // Weryfikuj token resetowania hasła
+    const decoded = jwt.verify(token, PASSWORD_RESET_SECRET);
+    
+    // Sprawdź, czy token jest typu password_reset
+    if (decoded.type !== 'password_reset') {
+      return res.status(400).json({ message: 'Nieprawidłowy token resetowania hasła' });
+    }
+    
+    // Hashuj nowe hasło
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Aktualizuj hasło w bazie danych
+    db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, decoded.id], function(err) {
+      if (err) {
+        console.error('Błąd podczas aktualizacji hasła:', err);
+        return res.status(500).json({ message: 'Błąd podczas aktualizacji hasła' });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
+      }
+      
+      res.json({ message: 'Hasło zostało zresetowane pomyślnie' });
+    });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(400).json({ message: 'Token resetowania hasła wygasł' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(400).json({ message: 'Nieprawidłowy token resetowania hasła' });
+    }
+    console.error('Błąd podczas resetowania hasła:', error);
+    res.status(500).json({ message: 'Wystąpił błąd serwera' });
+  }
 });
 
 // Serwowanie statycznych plików w produkcji

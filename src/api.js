@@ -108,4 +108,27 @@ export const deleteTransaction = async (token, transactionId) => {
     },
   });
   return handleResponse(response);
+};
+
+// Funkcje resetowania hasła
+export const requestPasswordReset = async (email) => {
+  const response = await fetch(`${API_URL}/reset-password-request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(response);
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await fetch(`${API_URL}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return handleResponse(response);
 }; 

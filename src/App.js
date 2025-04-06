@@ -31,8 +31,9 @@ const App = () => {
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const savedAuth = localStorage.getItem('isAuthenticated');
-    return savedAuth === 'true';
+    // Zawsze ustawiamy na true, aby pominąć ekran logowania
+    localStorage.setItem('isAuthenticated', 'true');
+    return true;
   });
 
   const [user, setUser] = useState(() => {
@@ -436,11 +437,9 @@ const App = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="container mt-5">
-        <div className="row justify-content-center">
-          <div className="col-md-6">
-            <Auth onLogin={handleLogin} />
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-400 to-blue-700 p-4">
+        <div className="w-full max-w-md">
+          <Auth onLogin={handleLogin} defaultLanguage={selectedLanguage} />
         </div>
       </div>
     );
@@ -533,14 +532,12 @@ const App = () => {
                   {selectedLanguage === 'pl' ? 'Switch to English (EUR)' : 'Przełącz na polski (PLN)'}
                 </div>
               </button>
-              <button className="bg-blue-700 p-2 rounded-md hover:bg-blue-800 transition-colors" aria-label="Ustawienia">
-                <Settings size={24} />
-              </button>
               <button 
-                className="bg-blue-700 p-2 rounded-md hover:bg-red-600 transition-colors" 
+                className="bg-blue-700 p-2 rounded-md hover:bg-red-600 transition-colors flex items-center space-x-2 px-3" 
                 onClick={handleLogout}
                 aria-label="Wyloguj"
               >
+                <span className="text-sm hidden md:inline">{user?.username} - {translations[selectedLanguage].logout}</span>
                 <LogOut size={24} />
               </button>
             </div>
