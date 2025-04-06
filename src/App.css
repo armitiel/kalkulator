@@ -11,9 +11,40 @@
   --font-size-3xl: 3rem;
 }
 
+/* Media query dla małych ekranów */
+@media (max-width: 768px) {
+  :root {
+    --font-size-base: 1rem;
+    --font-size-sm: 0.875rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+  }
+  
+  /* Zmniejsz padding na mobilnych ekranach */
+  .table th,
+  .table td {
+    padding: 0.5rem 0.5rem;
+  }
+  
+  /* Poprawa dla wykresów na mobilnych ekranach */
+  .recharts-wrapper {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Dostosowanie dla dashboardu na mobilnych ekranach */
+  .grid-cols-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 body {
   font-size: var(--font-size-base);
   background-color: #f8f9fa;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Style dla tabel */
@@ -29,6 +60,14 @@ body {
   padding: 0.75rem 1rem;
   white-space: nowrap;
   overflow: visible;
+}
+
+/* Poprawka dla przewijania tabel na mobilnych urządzeniach */
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  position: relative;
 }
 
 /* Style dla osi Y w wykresach */
@@ -64,6 +103,7 @@ body {
   padding: 0.5rem !important;
   margin: 0.5rem auto !important;
   padding-top: 1rem !important;
+  max-width: 100%;
 }
 
 .recharts-cartesian-grid {
@@ -90,8 +130,17 @@ body {
   display: flex;
   justify-content: center;
   width: 100%;
+  max-width: 100%;
 }
 
+/* Poprawki dla responsywnych kontenerów */
+.responsive-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Inne style */
 .text-sm {
   font-size: var(--font-size-sm);
 }
@@ -161,4 +210,214 @@ body {
 .alert,
 .card-title {
   font-size: var(--font-size-sm);
+}
+
+/* Style dla tabel */
+.table-container {
+  overflow-x: auto;
+}
+
+/* Style dla kart i wykresów */
+.card {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 1rem;
+}
+
+/* Style CSS dla mobilnych urządzeń */
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+  
+  body {
+    padding: 0;
+    margin: 0;
+    overflow-x: hidden;
+  }
+  
+  .mobile-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -1rem;
+    padding: 0 1rem;
+  }
+  
+  .card {
+    padding: 0.75rem;
+  }
+  
+  /* Dostosowanie stylów dla mobilnych tabel */
+  table {
+    width: 100%;
+    min-width: 600px; /* Zapewnia minimalna szerokość do przewijania na małych ekranach */
+  }
+  
+  /* Style dla responsywnych tabel w widoku mobilnym */
+  .mobile-responsive-table {
+    width: 100%;
+    min-width: auto !important;
+    border-collapse: collapse;
+  }
+  
+  .mobile-responsive-table thead {
+    display: none;
+  }
+  
+  .mobile-responsive-table tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    background-color: #f9fafb;
+    width: 100%;
+  }
+  
+  .mobile-responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.5rem !important;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: right;
+    width: 100%;
+  }
+  
+  .mobile-responsive-table td:last-child {
+    border-bottom: none;
+  }
+  
+  .mobile-responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #4b5563;
+    margin-right: 0.5rem;
+    text-align: left;
+    flex-shrink: 0;
+    width: 40%;
+  }
+  
+  .mobile-responsive-table td > div,
+  .mobile-responsive-table td > span {
+    width: 60%;
+    text-align: right;
+  }
+  
+  .mobile-responsive-table td .w-full {
+    width: 100% !important;
+  }
+  
+  /* Style dla komunikatów ostrzegawczych w tabelach */
+  .text-amber-600.whitespace-normal {
+    display: block;
+    white-space: normal !important;
+    word-wrap: break-word;
+    max-width: 100%;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+  }
+  
+  /* Poprawa wyglądu komunikatów w tabeli planowanych wypłat */
+  .mobile-responsive-table td .text-xs.text-amber-600 {
+    margin-top: 0.5rem;
+    display: block;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  
+  /* Przyciski i inputy na mobile */
+  button, input, select {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  /* Poprawki dla układu siatki (grid) */
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+  }
+  
+  /* Poprawki dla nagłówków i tekstów */
+  h1 {
+    font-size: 1.5rem !important;
+  }
+  
+  h2 {
+    font-size: 1.25rem !important;
+  }
+  
+  h3 {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Poprawki dla wykresów */
+  .recharts-wrapper {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Style dla mobilnej nawigacji */
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    height: 60px;
+  }
+
+  .mobile-nav button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    font-size: 0.7rem;
+    color: #4b5563;
+    border: none;
+    background: none;
+  }
+
+  .mobile-nav button.active {
+    color: #2563eb;
+  }
+
+  .mobile-nav button svg {
+    margin-bottom: 4px;
+    height: 20px;
+    width: 20px;
+  }
+
+  /* Style dla górnego paska z informacjami użytkownika */
+  .mobile-header {
+    padding: 10px !important;
+  }
+
+  .mobile-header .header-content {
+    padding: 0 !important;
+  }
+
+  .mobile-header .language-currency-logout {
+    display: flex;
+    align-items: center;
+  }
+  
+  .mobile-header .balance-container {
+    width: 100%;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Dodatkowe miejsce na dole na nawigację mobilną */
+  main.with-mobile-nav {
+    padding-bottom: 70px !important; 
+  }
 } 

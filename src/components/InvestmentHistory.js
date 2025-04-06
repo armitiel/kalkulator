@@ -10,7 +10,9 @@ const InvestmentHistory = ({
   setCurrentBalance,
   dailySignals,
   translations,
-  selectedLanguage
+  selectedLanguage,
+  selectedCurrency,
+  exchangeRates
 }) => {
   const [newDeposit, setNewDeposit] = useState({
     amount: '',
@@ -169,17 +171,6 @@ const InvestmentHistory = ({
     }
   };
 
-  const handleResetApp = () => {
-    if (window.confirm(translations[selectedLanguage].confirmReset)) {
-      setHistory([]);
-      setCurrentBalance(0);
-      setNewDeposit({
-        amount: '',
-        date: new Date().toISOString().split('T')[0]
-      });
-    }
-  };
-
   const handleProjection = () => {
     // Implementacja funkcji obliczania projekcji
   };
@@ -188,27 +179,29 @@ const InvestmentHistory = ({
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">{translations[selectedLanguage].depositPlanning}</h2>
-        <button
-          onClick={handleResetApp}
-          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-        >
-          {translations[selectedLanguage].resetApp}
-        </button>
       </div>
 
-      <form onSubmit={handleAddDeposit} className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleAddDeposit} className="mb-6 bg-white p-6 rounded-lg shadow-md">
+        <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {translations[selectedLanguage].depositAmount}
+              {translations[selectedLanguage].depositAmount} ({selectedCurrency})
             </label>
-            <input
-              type="number"
-              value={newDeposit.amount}
-              onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
-              className="w-full p-2 border rounded-md"
-              required
-            />
+            <div className="relative">
+              <input
+                type="number"
+                value={newDeposit.amount}
+                onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg shadow-sm pr-16 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <span className="absolute right-3 top-3 text-gray-500">
+                {selectedCurrency}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {newDeposit.amount ? `${(parseFloat(newDeposit.amount) / exchangeRates[selectedCurrency]).toFixed(2)} USDT` : '0.00 USDT'}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -218,14 +211,14 @@ const InvestmentHistory = ({
               type="date"
               value={newDeposit.date}
               onChange={(e) => setNewDeposit({ ...newDeposit, date: e.target.value })}
-              className="w-full p-2 border rounded-md"
+              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
         </div>
         <button
           type="submit"
-          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+          className="w-full mt-6 bg-blue-600 text-white p-3 rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
           {translations[selectedLanguage].addDeposit}
         </button>
@@ -238,29 +231,29 @@ const InvestmentHistory = ({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto pb-4 mobile-table-wrapper">
+        <table className="min-w-full divide-y divide-gray-200 table-auto mobile-responsive-table">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].date}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].amount}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].turnoverStatus}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].turnoverProgress}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].daysLeft}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].completionDate}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 {translations[selectedLanguage].actions}
               </th>
             </tr>
@@ -270,48 +263,63 @@ const InvestmentHistory = ({
               const turnoverStatus = calculateTurnoverStatus(deposit);
               return (
                 <tr key={deposit.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {deposit.date}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{deposit.amount} USDT</div>
-                    <div className="text-xs text-gray-500">
-                      {translations[selectedLanguage].currently}: {turnoverStatus.currentAmount.toFixed(2)} USDT
-                      <br />
-                      {translations[selectedLanguage].totalProfits}: {turnoverStatus.totalTurnover.toFixed(2)} USDT
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].date}>
+                    <div className="text-sm text-gray-500 w-full text-right">
+                      {deposit.date}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      turnoverStatus.completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {turnoverStatus.completed ? translations[selectedLanguage].completed : translations[selectedLanguage].inProgress}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${turnoverStatus.progress * 100}%` }}
-                      ></div>
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].amount}>
+                    <div className="text-sm font-medium text-gray-900 w-full text-right">
+                      <div className="font-semibold">{deposit.amount} USDT</div>
+                      <div className="text-xs text-gray-500 mt-1 w-full">
+                        {translations[selectedLanguage].currently}: {turnoverStatus.currentAmount.toFixed(2)} USDT
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 w-full">
+                        {translations[selectedLanguage].totalProfits}: {turnoverStatus.totalTurnover.toFixed(2)} USDT
+                      </div>
                     </div>
-                    <span className="text-xs text-gray-500 mt-1">
-                      {Math.round(turnoverStatus.progress * 100)}%
-                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {turnoverStatus.daysLeft} {translations[selectedLanguage].days}
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].turnoverStatus}>
+                    <div className="w-full text-right">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        turnoverStatus.completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {turnoverStatus.completed ? translations[selectedLanguage].completed : translations[selectedLanguage].inProgress}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(turnoverStatus.completionDate).toLocaleDateString()}
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].turnoverProgress}>
+                    <div className="w-full text-right">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                        <div 
+                          className="bg-blue-600 h-2.5 rounded-full" 
+                          style={{ width: `${turnoverStatus.progress * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-500 block text-right">
+                        {Math.round(turnoverStatus.progress * 100)}%
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button
-                      onClick={() => handleDeleteEntry(deposit.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].daysLeft}>
+                    <div className="text-sm text-gray-500 w-full text-right">
+                      {turnoverStatus.daysLeft} {translations[selectedLanguage].days}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].completionDate}>
+                    <div className="text-sm text-gray-500 w-full text-right">
+                      {new Date(turnoverStatus.completionDate).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].actions}>
+                    <div className="w-full text-right">
+                      <button
+                        onClick={() => handleDeleteEntry(deposit.id)}
+                        className="text-red-600 hover:text-red-900 p-1 bg-red-50 rounded-full"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

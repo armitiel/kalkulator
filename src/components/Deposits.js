@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 
-const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dailySignals }) => {
+const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dailySignals, selectedCurrency, exchangeRates }) => {
   const [newDeposit, setNewDeposit] = useState({
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -29,9 +29,9 @@ const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dai
     if (newDeposit.amount && newDeposit.date) {
       onAddDeposit({
         ...newDeposit,
-        amount: parseFloat(newDeposit.amount),
+        amount: parseFloat(newDeposit.amount) / exchangeRates[selectedCurrency], // Konwersja na USDT
         status: 'active',
-        turnoverRequired: parseFloat(newDeposit.amount) * 3,
+        turnoverRequired: parseFloat(newDeposit.amount) / exchangeRates[selectedCurrency] * 3,
         turnoverCompleted: 0
       });
       setNewDeposit({
@@ -53,18 +53,26 @@ const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dai
       <h2 className="text-2xl font-bold mb-6">Wpłaty</h2>
       
       <form onSubmit={handleSubmit} className="mb-8 bg-white p-6 rounded-lg shadow">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Kwota</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={newDeposit.amount}
-              onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
-            />
+            <label className="block text-sm font-medium text-gray-700">Kwota ({selectedCurrency})</label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newDeposit.amount}
+                onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-16"
+                required
+              />
+              <span className="absolute right-3 top-2 text-gray-500">
+                {selectedCurrency}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {newDeposit.amount ? `${(parseFloat(newDeposit.amount) / exchangeRates[selectedCurrency]).toFixed(2)} USDT` : '0.00 USDT'}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Data</label>
@@ -86,7 +94,7 @@ const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dai
       </form>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 mobile-responsive-table">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
@@ -105,18 +113,18 @@ const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dai
 
               return (
                 <tr key={deposit.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{deposit.date}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{deposit.amount.toFixed(2)} USDT</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Data">{deposit.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Kwota">{deposit.amount.toFixed(2)} USDT</td>
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Status">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       deposit.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>
                       {deposit.status === 'completed' ? 'Ukończony' : 'Aktywny'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{remainingDays}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{completionDate.toLocaleDateString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Pozostałe dni">{remainingDays}</td>
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Data ukończenia">{completionDate.toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Akcje">
                     <button
                       onClick={() => handleRemove(deposit.id)}
                       className="text-red-600 hover:text-red-900"

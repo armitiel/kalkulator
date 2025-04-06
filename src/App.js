@@ -203,7 +203,9 @@ const App = () => {
       confirmDelete: 'Czy na pewno chcesz usunąć tę wpłatę?',
       confirmReset: 'Czy na pewno chcesz zresetować aplikację? Wszystkie dane zostaną usunięte.',
       resetApp: 'Resetuj aplikację',
-      addDeposit: 'Dodaj wpłatę'
+      addDeposit: 'Dodaj wpłatę',
+      withdrawalWarning: 'Uwaga: Wypłata przekracza miesięczny zysk',
+      activeTurnovers: 'Aktywne obroty w toku'
     },
     en: {
       appName: 'Investment Tracker',
@@ -273,7 +275,9 @@ const App = () => {
       confirmDelete: 'Are you sure you want to delete this deposit?',
       confirmReset: 'Are you sure you want to reset the application? All data will be deleted.',
       resetApp: 'Reset Application',
-      addDeposit: 'Add Deposit'
+      addDeposit: 'Add Deposit',
+      withdrawalWarning: 'Warning: Withdrawal exceeds monthly profit',
+      activeTurnovers: 'Active turnovers in progress'
     }
   };
 
@@ -447,45 +451,72 @@ const App = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      {/* Nagłówek */}
-      <header className="bg-blue-600 text-white p-4 shadow-md">
-        <div className="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
-          <div className="flex items-center space-x-2">
-            <img src="/logo.svg" alt="Logo" className="w-16 h-16" />
-            <h1 className="text-xl md:text-2xl font-bold">{translations[selectedLanguage].appName}</h1>
-          </div>
-          <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
-                <DollarSign className="text-blue-600" size={20} />
-                <div className="flex items-center space-x-2">
+      {!isAuthenticated ? (
+        <Auth setIsAuthenticated={setIsAuthenticated} setUser={setUser} />
+      ) : (
+        <div className="flex flex-col min-h-screen">
+          {/* Nagłówek */}
+          <header className="bg-blue-600 text-white shadow-md mobile-header">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-col p-4 header-content">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center space-x-4">
+                    <img src="/logo.svg" alt="Logo" className="w-10 h-10" />
+                    <h1 className="text-xl font-bold">{translations[selectedLanguage].appName}</h1>
+                  </div>
+                  
+                  <div className="flex space-x-3 language-currency-logout">
+                    <button 
+                      className="bg-blue-700 p-2 rounded-full hover:bg-blue-800 transition-colors relative group"
+                      onClick={() => {
+                        const newLanguage = selectedLanguage === 'pl' ? 'en' : 'pl';
+                        const newCurrency = newLanguage === 'pl' ? 'PLN' : 'EUR';
+                        setSelectedLanguage(newLanguage);
+                        setSelectedCurrency(newCurrency);
+                      }}
+                      title={selectedLanguage === 'pl' ? 'Switch to English' : 'Przełącz na polski'}
+                    >
+                      <div className="w-6 h-6 rounded-full overflow-hidden shadow-md border border-gray-300">
+                        {selectedLanguage === 'pl' ? <PolishFlag /> : <UKFlag />}
+                      </div>
+                    </button>
+                    <button 
+                      className="bg-blue-700 p-2 rounded-full hover:bg-red-600 transition-colors flex items-center" 
+                      onClick={handleLogout}
+                      aria-label="Wyloguj"
+                    >
+                      <LogOut size={20} />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="w-full text-white bg-blue-800 px-4 py-2 rounded-lg flex items-center justify-between">
                   {isEditingBalance ? (
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const newBalance = parseFloat(editValue);
-                      if (!isNaN(newBalance) && newBalance >= 0) {
-                        handlePortfolioUpdate('currentBalance', newBalance);
-                        setIsEditingBalance(false);
-                        setEditValue('');
-                      }
-                    }} className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 w-full">
+                      <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
                       <input
                         type="number"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-24 p-1 text-gray-900 border rounded"
+                        className="w-32 p-1 text-gray-800 border rounded"
                         step="0.01"
                         min="0"
                         autoFocus
                       />
                       <button
-                        type="submit"
+                        onClick={() => {
+                          const newBalance = parseFloat(editValue);
+                          if (!isNaN(newBalance) && newBalance >= 0) {
+                            updateBalance(newBalance);
+                            setIsEditingBalance(false);
+                            setEditValue('');
+                          }
+                        }}
                         className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
                       >
                         ✓
                       </button>
                       <button
-                        type="button"
                         onClick={() => {
                           setIsEditingBalance(false);
                           setEditValue('');
@@ -494,321 +525,331 @@ const App = () => {
                       >
                         ✕
                       </button>
-                    </form>
+                    </div>
                   ) : (
                     <>
-                      <span className="text-lg font-semibold text-blue-600">{currentBalance.toFixed(2)} USDT</span>
-                      <span className="text-sm text-gray-500">{(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</span>
+                      <div>
+                        <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
+                        <span className="text-lg font-semibold text-white">{currentBalance.toFixed(2)} USDT</span>
+                        <span className="text-sm text-blue-200 ml-1">({(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency})</span>
+                      </div>
                       <button 
                         onClick={() => {
                           setEditValue(currentBalance.toString());
                           setIsEditingBalance(true);
                         }}
-                        className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+                        className="p-1 hover:bg-blue-700 rounded-full transition-colors ml-2"
                         title={translations[selectedLanguage].editBalance}
                       >
-                        <Pencil className="text-blue-500" size={16} />
+                        <Pencil className="text-white" size={16} />
                       </button>
                     </>
                   )}
                 </div>
               </div>
             </div>
-            <div className="flex space-x-4">
-              <button 
-                className="bg-blue-700 p-2 rounded-full hover:bg-blue-800 transition-colors relative group"
-                onClick={() => {
-                  const newLanguage = selectedLanguage === 'pl' ? 'en' : 'pl';
-                  const newCurrency = newLanguage === 'pl' ? 'PLN' : 'EUR';
-                  setSelectedLanguage(newLanguage);
-                  setSelectedCurrency(newCurrency);
-                }}
-                title={selectedLanguage === 'pl' ? 'Switch to English' : 'Przełącz na polski'}
+          </header>
+
+          {/* Menu nawigacyjne dla desktopów */}
+          <nav className="bg-white shadow-md hidden md:block">
+            <div className="flex p-4 space-x-2">
+              <button
+                className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'dashboard' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
+                onClick={() => setActiveTab('dashboard')}
               >
-                <div className="w-8 h-8 rounded-full overflow-hidden shadow-md border border-gray-300">
-                  {selectedLanguage === 'pl' ? <PolishFlag /> : <UKFlag />}
-                </div>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  {selectedLanguage === 'pl' ? 'Switch to English (EUR)' : 'Przełącz na polski (PLN)'}
-                </div>
+                <TrendingUp size={18} />
+                <span>{translations[selectedLanguage].dashboard}</span>
               </button>
               <button 
-                className="bg-blue-700 p-2 rounded-md hover:bg-red-600 transition-colors flex items-center space-x-2 px-3" 
-                onClick={handleLogout}
-                aria-label="Wyloguj"
+                className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'calculator' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
+                onClick={() => setActiveTab('calculator')}
               >
-                <span className="text-sm hidden md:inline">{user?.username} - {translations[selectedLanguage].logout}</span>
-                <LogOut size={24} />
+                <DollarSign size={18} />
+                <span>{translations[selectedLanguage].profitForecast}</span>
+              </button>
+              <button 
+                className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'analytics' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
+                onClick={() => setActiveTab('analytics')}
+              >
+                <BarChart2 size={18} />
+                <span>{translations[selectedLanguage].withdrawalPlanning}</span>
+              </button>
+              <button
+                className={`flex items-center justify-center space-x-2 p-3 rounded ${
+                  activeTab === 'deposits' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                }`}
+                onClick={() => setActiveTab('deposits')}
+              >
+                <Clock size={18} />
+                <span>{translations[selectedLanguage].depositPlanning}</span>
               </button>
             </div>
-          </div>
-        </div>
-      </header>
+          </nav>
 
-      {/* Menu nawigacyjne */}
-      <nav className="bg-white shadow-md">
-        <div className="flex flex-col md:flex-row p-4 space-y-2 md:space-y-0 md:space-x-2">
-          <button
-            className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'dashboard' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <TrendingUp size={18} />
-            <span>{translations[selectedLanguage].dashboard}</span>
-          </button>
-          <button 
-            className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'calculator' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
-            onClick={() => setActiveTab('calculator')}
-          >
-            <DollarSign size={18} />
-            <span>{translations[selectedLanguage].profitForecast}</span>
-          </button>
-          <button 
-            className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'analytics' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
-            onClick={() => setActiveTab('analytics')}
-          >
-            <BarChart2 size={18} />
-            <span>{translations[selectedLanguage].withdrawalPlanning}</span>
-          </button>
-          <button
-            className={`flex items-center justify-center space-x-2 p-3 rounded ${
-              activeTab === 'deposits' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-            }`}
-            onClick={() => setActiveTab('deposits')}
-          >
-            <Clock size={18} />
-            <span>{translations[selectedLanguage].depositPlanning}</span>
-          </button>
-        </div>
-      </nav>
+          {/* Główna zawartość */}
+          <main className="flex-1 p-4 overflow-auto with-mobile-nav">
+            {activeTab === 'dashboard' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Aktualny stan konta */}
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                  <h2 className="text-lg font-semibold mb-4">{translations[selectedLanguage].currentBalance}</h2>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="bg-indigo-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="w-full">
+                          <p className="text-sm text-gray-600">{translations[selectedLanguage].balance}</p>
+                          {isEditingBalance ? (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="number"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="w-32 p-1 text-xl font-bold border rounded"
+                                step="0.01"
+                                min="0"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => {
+                                  const newBalance = parseFloat(editValue);
+                                  if (!isNaN(newBalance) && newBalance >= 0) {
+                                    handlePortfolioUpdate('currentBalance', newBalance);
+                                    setIsEditingBalance(false);
+                                    setEditValue('');
+                                  }
+                                }}
+                                className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsEditingBalance(false);
+                                  setEditValue('');
+                                }}
+                                className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div 
+                              className="flex items-center space-x-2 cursor-pointer group hover:bg-indigo-100 p-2 rounded-lg transition-colors"
+                              onClick={() => {
+                                setEditValue(currentBalance.toString());
+                                setIsEditingBalance(true);
+                              }}
+                            >
+                              <div>
+                                <p className="text-2xl font-bold group-hover:text-blue-600 transition-colors">
+                                  {currentBalance.toFixed(2)} USDT
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}
+                                </p>
+                              </div>
+                              <Pencil className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
+                            </div>
+                          )}
+                        </div>
+                        <DollarSign className="text-indigo-500" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-      {/* Główna zawartość */}
-      <main className="flex-1 p-4 overflow-auto">
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Aktualny stan konta */}
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <h2 className="text-lg font-semibold mb-4">{translations[selectedLanguage].currentBalance}</h2>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="bg-indigo-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="w-full">
-                      <p className="text-sm text-gray-600">{translations[selectedLanguage].balance}</p>
-                      {isEditingBalance ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="number"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="w-32 p-1 text-xl font-bold border rounded"
-                            step="0.01"
-                            min="0"
-                            autoFocus
-                          />
-                          <button
+                {/* Statystyki */}
+                <div className="bg-white p-4 rounded-lg shadow-md">
+                  <h2 className="text-lg font-semibold mb-4">{translations[selectedLanguage].investmentStats}</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyProfit}</p>
+                          <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals).toFixed(2)} USDT</p>
+                          <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                        </div>
+                        <ArrowUpRight className="text-blue-500" />
+                      </div>
+                    </div>
+
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">{translations[selectedLanguage].monthlyProfit}</p>
+                          <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals * 30).toFixed(2)} USDT</p>
+                          <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * 30 * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                        </div>
+                        <TrendingUp className="text-green-500" />
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">{translations[selectedLanguage].totalDeposits}</p>
+                          <p className="text-2xl font-bold">{deposits.reduce((sum, deposit) => sum + deposit.amount, 0).toFixed(2)} USDT</p>
+                          <p className="text-sm text-gray-500">{(deposits.reduce((sum, deposit) => sum + deposit.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                        </div>
+                        <DollarSign className="text-purple-500" />
+                      </div>
+                    </div>
+
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">{translations[selectedLanguage].totalWithdrawals}</p>
+                          <p className="text-2xl font-bold">{withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0).toFixed(2)} USDT</p>
+                          <p className="text-sm text-gray-500">{(withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                        </div>
+                        <TrendingDown className="text-red-500" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edycja sygnałów */}
+                  <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-semibold">{translations[selectedLanguage].signals}</h2>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1">
+                          <button 
                             onClick={() => {
-                              const newBalance = parseFloat(editValue);
-                              if (!isNaN(newBalance) && newBalance >= 0) {
-                                handlePortfolioUpdate('currentBalance', newBalance);
-                                setIsEditingBalance(false);
-                                setEditValue('');
+                              if (dailySignals > 2) {
+                                setDailySignals(dailySignals - 1);
                               }
                             }}
-                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                            className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
+                            disabled={dailySignals <= 2}
                           >
-                            ✓
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
                           </button>
-                          <button
+                          <span className="text-2xl font-bold min-w-[2.5rem] text-center">{dailySignals}</span>
+                          <button 
                             onClick={() => {
-                              setIsEditingBalance(false);
-                              setEditValue('');
+                              if (dailySignals < 5) {
+                                setDailySignals(dailySignals + 1);
+                              }
                             }}
-                            className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                            className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
+                            disabled={dailySignals >= 5}
                           >
-                            ✕
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                            </svg>
                           </button>
                         </div>
-                      ) : (
-                        <div 
-                          className="flex items-center space-x-2 cursor-pointer group hover:bg-indigo-100 p-2 rounded-lg transition-colors"
-                          onClick={() => {
-                            setEditValue(currentBalance.toString());
-                            setIsEditingBalance(true);
-                          }}
-                        >
-                          <div>
-                            <p className="text-2xl font-bold group-hover:text-blue-600 transition-colors">
-                              {currentBalance.toFixed(2)} USDT
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}
-                            </p>
-                          </div>
-                          <Pencil className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
-                        </div>
-                      )}
+                      </div>
                     </div>
-                    <DollarSign className="text-indigo-500" />
+                    <div className="mt-2 text-sm text-gray-600">
+                      {translations[selectedLanguage].signalInfo} ({dailySignals} {translations[selectedLanguage].signals} = {(dailySignals * 0.6).toFixed(1)}% {selectedLanguage === 'pl' ? 'dziennie' : 'daily'})
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Statystyki */}
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <h2 className="text-lg font-semibold mb-4">{translations[selectedLanguage].investmentStats}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyProfit}</p>
-                      <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals).toFixed(2)} USDT</p>
-                      <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                    </div>
-                    <ArrowUpRight className="text-blue-500" />
-                  </div>
-                </div>
+            {activeTab === 'calculator' && (
+              <Calculator 
+                currentBalance={currentBalance}
+                dailySignals={dailySignals}
+                selectedCurrency={selectedCurrency}
+                exchangeRates={exchangeRates}
+                translations={translations}
+                selectedLanguage={selectedLanguage}
+              />
+            )}
 
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{translations[selectedLanguage].monthlyProfit}</p>
-                      <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals * 30).toFixed(2)} USDT</p>
-                      <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * 30 * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                    </div>
-                    <TrendingUp className="text-green-500" />
-                  </div>
-                </div>
+            {activeTab === 'analytics' && (
+              <div className="grid grid-cols-1 gap-4">
+                <WithdrawalPlanner
+                  currentBalance={currentBalance}
+                  dailySignals={dailySignals}
+                  selectedCurrency={selectedCurrency}
+                  exchangeRates={exchangeRates}
+                  deposits={deposits}
+                  withdrawalPlan={withdrawalPlan}
+                  setWithdrawalPlan={setWithdrawalPlan}
+                  translations={translations}
+                  selectedLanguage={selectedLanguage}
+                />
+              </div>
+            )}
 
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
+            {activeTab === 'deposits' && (
+              <div>
+                <InvestmentHistory
+                  history={investmentHistory}
+                  setHistory={setInvestmentHistory}
+                  currentBalance={currentBalance}
+                  setCurrentBalance={updateBalance}
+                  dailySignals={dailySignals}
+                  translations={translations}
+                  selectedLanguage={selectedLanguage}
+                  selectedCurrency={selectedCurrency}
+                  exchangeRates={exchangeRates}
+                />
+                <div className="mt-4 bg-amber-50 p-4 rounded-lg shadow-sm">
+                  <div className="flex items-start space-x-3">
+                    <Lightbulb className="text-amber-500 flex-shrink-0" size={24} />
                     <div>
-                      <p className="text-sm text-gray-600">{translations[selectedLanguage].totalDeposits}</p>
-                      <p className="text-2xl font-bold">{deposits.reduce((sum, deposit) => sum + deposit.amount, 0).toFixed(2)} USDT</p>
-                      <p className="text-sm text-gray-500">{(deposits.reduce((sum, deposit) => sum + deposit.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                      <h3 className="font-semibold text-gray-800 mb-2">
+                        {selectedLanguage === 'pl' ? 'Informacja o opłatach za wypłaty' : 'Withdrawal fees information'}
+                      </h3>
+                      <ul className="list-disc list-inside space-y-1 text-gray-600">
+                        <li>
+                          {selectedLanguage === 'pl' 
+                            ? 'Wypłata przed pełnym obrotem: opłata 20% od kwoty transakcji' 
+                            : 'Early withdrawal (before full turnover): 20% fee of transaction amount'}
+                        </li>
+                        <li>
+                          {selectedLanguage === 'pl'
+                            ? 'Wypłata po pełnym obrocie: opłata 5% od kwoty transakcji'
+                            : 'Withdrawal after full turnover: 5% fee of transaction amount'}
+                        </li>
+                      </ul>
                     </div>
-                    <DollarSign className="text-purple-500" />
-                  </div>
-                </div>
-
-                <div className="bg-red-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">{translations[selectedLanguage].totalWithdrawals}</p>
-                      <p className="text-2xl font-bold">{withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0).toFixed(2)} USDT</p>
-                      <p className="text-sm text-gray-500">{(withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                    </div>
-                    <TrendingDown className="text-red-500" />
                   </div>
                 </div>
               </div>
+            )}
+          </main>
 
-              {/* Edycja sygnałów */}
-              <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">{translations[selectedLanguage].signals}</h2>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1">
-                      <button 
-                        onClick={() => {
-                          if (dailySignals > 2) {
-                            setDailySignals(dailySignals - 1);
-                          }
-                        }}
-                        className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
-                        disabled={dailySignals <= 2}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <span className="text-2xl font-bold min-w-[2.5rem] text-center">{dailySignals}</span>
-                      <button 
-                        onClick={() => {
-                          if (dailySignals < 5) {
-                            setDailySignals(dailySignals + 1);
-                          }
-                        }}
-                        className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
-                        disabled={dailySignals >= 5}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  {translations[selectedLanguage].signalInfo} ({dailySignals} {translations[selectedLanguage].signals} = {(dailySignals * 0.6).toFixed(1)}% {selectedLanguage === 'pl' ? 'dziennie' : 'daily'})
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'calculator' && (
-          <Calculator 
-            currentBalance={currentBalance}
-            dailySignals={dailySignals}
-            selectedCurrency={selectedCurrency}
-            exchangeRates={exchangeRates}
-            translations={translations}
-            selectedLanguage={selectedLanguage}
-          />
-        )}
-
-        {activeTab === 'analytics' && (
-          <div className="grid grid-cols-1 gap-4">
-            <WithdrawalPlanner
-              currentBalance={currentBalance}
-              dailySignals={dailySignals}
-              selectedCurrency={selectedCurrency}
-              exchangeRates={exchangeRates}
-              deposits={deposits}
-              withdrawalPlan={withdrawalPlan}
-              setWithdrawalPlan={setWithdrawalPlan}
-              translations={translations}
-              selectedLanguage={selectedLanguage}
-            />
-          </div>
-        )}
-
-        {activeTab === 'deposits' && (
-          <div>
-            <InvestmentHistory
-              history={investmentHistory}
-              setHistory={setInvestmentHistory}
-              currentBalance={currentBalance}
-              setCurrentBalance={updateBalance}
-              dailySignals={dailySignals}
-              translations={translations}
-              selectedLanguage={selectedLanguage}
-            />
-            <div className="mt-4 bg-amber-50 p-4 rounded-lg shadow-sm">
-              <div className="flex items-start space-x-3">
-                <Lightbulb className="text-amber-500 flex-shrink-0" size={24} />
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-2">
-                    {selectedLanguage === 'pl' ? 'Informacja o opłatach za wypłaty' : 'Withdrawal fees information'}
-                  </h3>
-                  <ul className="list-disc list-inside space-y-1 text-gray-600">
-                    <li>
-                      {selectedLanguage === 'pl' 
-                        ? 'Wypłata przed pełnym obrotem: opłata 20% od kwoty transakcji' 
-                        : 'Early withdrawal (before full turnover): 20% fee of transaction amount'}
-                    </li>
-                    <li>
-                      {selectedLanguage === 'pl'
-                        ? 'Wypłata po pełnym obrocie: opłata 5% od kwoty transakcji'
-                        : 'Withdrawal after full turnover: 5% fee of transaction amount'}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+          {/* Mobilne menu nawigacyjne */}
+          <nav className="mobile-nav md:hidden">
+            <button
+              className={activeTab === 'dashboard' ? 'active' : ''}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <TrendingUp size={20} />
+              <span>{translations[selectedLanguage].dashboard}</span>
+            </button>
+            <button 
+              className={activeTab === 'calculator' ? 'active' : ''}
+              onClick={() => setActiveTab('calculator')}
+            >
+              <DollarSign size={20} />
+              <span>{translations[selectedLanguage].profitForecast}</span>
+            </button>
+            <button 
+              className={activeTab === 'analytics' ? 'active' : ''}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <BarChart2 size={20} />
+              <span>{translations[selectedLanguage].withdrawalPlanning}</span>
+            </button>
+            <button
+              className={activeTab === 'deposits' ? 'active' : ''}
+              onClick={() => setActiveTab('deposits')}
+            >
+              <Clock size={20} />
+              <span>{translations[selectedLanguage].depositPlanning}</span>
+            </button>
+          </nav>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,18 +1,21 @@
 {
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
-  "buildCommand": "DISABLE_ESLINT_PLUGIN=true SKIP_PREFLIGHT_CHECK=true CI=false npm run build",
-  "outputDirectory": "build",
-  "framework": "create-react-app",
-  "env": {
-    "DISABLE_ESLINT_PLUGIN": "true",
-    "SKIP_PREFLIGHT_CHECK": "true",
-    "CI": "false",
-    "EXTEND_ESLINT": "false",
-    "ESLINT_NO_DEV_ERRORS": "true"
-  }
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite"
 } 

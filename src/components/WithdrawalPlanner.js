@@ -196,17 +196,18 @@ const WithdrawalPlanner = ({
 
       // Sprawdź czy stać nas na wypłatę
       if (actualWithdrawal > monthlyGrowth) {
-        warning = `Uwaga: Wypłata przekracza miesięczny zysk (${monthlyGrowth.toFixed(2)} USDT)`;
+        warning = `${translations[selectedLanguage].withdrawalWarning} (${monthlyGrowth.toFixed(2)} USDT)`;
         actualWithdrawal = monthlyGrowth; // Ogranicz wypłatę do miesięcznego zysku
       }
 
       // Sprawdź czy wypłata wpłynie na aktywne obroty
       if (actualWithdrawal > 0 && turnoverStatus.hasActiveDeposits) {
         const activeDepositsInfo = turnoverStatus.activeDeposits
-          .map(d => `${d.amount} USDT (zakończenie: ${d.estimatedCompletionDate.toLocaleDateString()})`)
+          .map(d => `${d.amount} USDT (${translations[selectedLanguage].completionDate}: ${d.estimatedCompletionDate.toLocaleDateString()})`)
           .join(', ');
         
-        warning = (warning ? warning + '\n' : '') + `Aktywne obroty w toku: ${activeDepositsInfo}`;
+        const activeTurnoversMessage = `${translations[selectedLanguage].activeTurnovers}: ${activeDepositsInfo}`;
+        warning = warning ? `${warning}\n${activeTurnoversMessage}` : activeTurnoversMessage;
         fee = actualWithdrawal * 0.20; // 20% opłaty przy aktywnych obrotach
       } else {
         fee = actualWithdrawal * 0.05; // 5% standardowej opłaty
@@ -398,62 +399,28 @@ const WithdrawalPlanner = ({
         </div>
       </div>
 
-      {withdrawalPlan.projectionData.length > 0 && (
-        <div className="space-y-4">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].month}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].capital}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].growth}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].withdrawal}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].fee}</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {withdrawalPlan.projectionData.map((data, index) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.month}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {data.capital.toFixed(2)} USDT
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                      +{data.growth.toFixed(2)} USDT
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                      {data.withdrawal > 0 ? `-${data.withdrawal.toFixed(2)} USDT` : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{data.fee.toFixed(2)} USDT</div>
-                      {data.warning && (
-                        <div className="text-xs text-amber-600 mt-1">
-                          {data.warning}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <div className="h-96">
+      <div className="h-96 mt-6 mb-8">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={withdrawalPlan.projectionData.map(item => ({
-            ...item,
-            capital: item.capital * exchangeRates[selectedCurrency],
-            withdrawal: item.withdrawal * exchangeRates[selectedCurrency],
-            growth: item.growth * exchangeRates[selectedCurrency],
-            month: item.month
-          }))}>
+          <LineChart 
+            data={withdrawalPlan.projectionData.map(item => ({
+              ...item,
+              capital: item.capital * exchangeRates[selectedCurrency],
+              withdrawal: item.withdrawal * exchangeRates[selectedCurrency],
+              growth: item.growth * exchangeRates[selectedCurrency],
+              month: item.month
+            }))}
+            margin={{ top: 5, right: 20, left: 0, bottom: 20 }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
+            <XAxis 
+              dataKey="month" 
+              dy={10}
+              position="bottom"
+              tick={{ fontSize: 12 }}
+            />
+            <YAxis width={40} />
             <Tooltip formatter={(value) => value.toFixed(2)} />
-            <Legend />
+            <Legend verticalAlign="top" />
             <Line 
               type="monotone" 
               dataKey="capital" 
@@ -471,6 +438,53 @@ const WithdrawalPlanner = ({
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {withdrawalPlan.projectionData.length > 0 && (
+        <div className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 mobile-responsive-table">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].month}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].capital}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].growth}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].withdrawal}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{translations[selectedLanguage].fee}</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {withdrawalPlan.projectionData.map((data, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-label={translations[selectedLanguage].month}>{data.month}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-label={translations[selectedLanguage].capital}>
+                      {data.capital.toFixed(2)} USDT
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600" data-label={translations[selectedLanguage].growth}>
+                      +{data.growth.toFixed(2)} USDT
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600" data-label={translations[selectedLanguage].withdrawal}>
+                      {data.withdrawal > 0 ? `-${data.withdrawal.toFixed(2)} USDT` : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap" data-label={translations[selectedLanguage].fee}>
+                      <div className="text-sm text-gray-900">{data.fee.toFixed(2)} USDT</div>
+                      {data.warning && (
+                        <div className="text-xs text-amber-600 mt-1 whitespace-normal break-words">
+                          {data.warning.split('\n').map((line, i) => (
+                            <React.Fragment key={i}>
+                              {line}
+                              {i < data.warning.split('\n').length - 1 && <br />}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
