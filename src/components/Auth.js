@@ -292,7 +292,6 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength="8"
-                pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\-=[\]{};:,./<>?]).{8,}"
                 title={translations[language].passwordRequirements}
               />
               <small className="text-blue-200">
@@ -361,7 +360,6 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={isLogin ? "1" : "8"}
-            pattern={isLogin ? ".*" : "(?=.*\\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\\-=[\]{};:,./<>?]).{8,}"}
             title={translations[language].passwordRequirements}
           />
           {!isLogin && (
