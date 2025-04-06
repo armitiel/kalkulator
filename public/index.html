@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no" />
     <meta name="theme-color" content="#2563EB" />
     <meta
       name="description"
@@ -32,5 +32,18 @@
   <body>
     <noscript>Musisz włączyć JavaScript, aby uruchomić tę aplikację.</noscript>
     <div id="root"></div>
+    
+    <!-- Narzędzia debugowania mobilnego -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>
+      eruda.init();
+      
+      // Przechwytywanie błędów ładowania
+      window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'IMG' || e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+          console.error('Błąd ładowania zasobu: ', e.target.src || e.target.href);
+        }
+      }, true);
+    </script>
   </body>
-</html> 
+</html>
