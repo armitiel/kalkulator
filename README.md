@@ -72,4 +72,27 @@ Aplikacja używa bazy danych SQLite, która jest automatycznie tworzona przy pie
 
 ## Licencja
 
-MIT 
+MIT
+
+## Generowanie miniaturek i ikon
+
+W folderze `/public` znajdują się następujące pliki szablonów SVG, które możesz użyć do wygenerowania miniaturek i ikon:
+
+1. `og-image-template.svg` - szablon dla obrazu Open Graph (miniaturka przy udostępnianiu linku)
+2. `favicon-template.svg` - szablon dla favicon
+3. `apple-touch-icon-template.svg` - szablon dla ikony Apple Touch
+
+Aby wygenerować pliki:
+
+1. Otwórz pliki SVG w przeglądarce lub edytorze graficznym
+2. Wyeksportuj/zapisz jako pliki PNG:
+   - `og-image-template.svg` → `og-image.png` (1200x630px)
+   - `favicon-template.svg` → `favicon.ico` (64x64px)
+   - `apple-touch-icon-template.svg` → `apple-touch-icon.png` (180x180px)
+   - Dodatkowo wygeneruj `logo192.png` (192x192px) i `logo512.png` (512x512px)
+
+3. Umieść wszystkie wygenerowane pliki w folderze `/public`
+
+Możesz również użyć pliku `create-images.html` w folderze `/public`, który ułatwia wygenerowanie wszystkich potrzebnych plików.
+
+Dla favicon.ico możesz użyć konwertera online, np. [convertio.co](https://convertio.co/png-ico/) do konwersji PNG na ICO. 

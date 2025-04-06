@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Images</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .image-container {
+      background-color: #2563EB;
+      width: 1200px;
+      height: 630px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .logo {
+      width: 400px;
+      height: 400px;
+    }
+    .image-container-small {
+      background-color: #2563EB;
+      width: 512px;
+      height: 512px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .logo-small {
+      width: 320px;
+      height: 320px;
+    }
+    .image-container-smaller {
+      background-color: #2563EB;
+      width: 192px;
+      height: 192px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .logo-smaller {
+      width: 120px;
+      height: 120px;
+    }
+    .image-container-favicon {
+      background-color: #2563EB;
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .logo-favicon {
+      width: 40px;
+      height: 40px;
+    }
+    h2 {
+      margin-top: 30px;
+    }
+    p {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Generate Images for Investment Tracker</h1>
+  
+  <h2>OG Image (1200x630)</h2>
+  <p>Prawy klik > "Zapisz obrazek jako..." > Zapisz jako "og-image.png"</p>
+  <div class="image-container">
+    <img src="logo.svg" class="logo" alt="Investment Tracker Logo">
+  </div>
+  
+  <h2>Logo 512x512</h2>
+  <p>Prawy klik > "Zapisz obrazek jako..." > Zapisz jako "logo512.png"</p>
+  <div class="image-container-small">
+    <img src="logo.svg" class="logo-small" alt="Investment Tracker Logo">
+  </div>
+  
+  <h2>Logo 192x192</h2>
+  <p>Prawy klik > "Zapisz obrazek jako..." > Zapisz jako "logo192.png"</p>
+  <div class="image-container-smaller">
+    <img src="logo.svg" class="logo-smaller" alt="Investment Tracker Logo">
+  </div>
+  
+  <h2>Favicon 64x64</h2>
+  <p>Prawy klik > "Zapisz obrazek jako..." > Zapisz jako "favicon.png" (później konwertuj na .ico)</p>
+  <div class="image-container-favicon">
+    <img src="logo.svg" class="logo-favicon" alt="Investment Tracker Logo">
+  </div>
+  
+  <p>Po zapisaniu obrazów, umieść je w folderze public aplikacji.</p>
+  <p>Dla favicon.png musisz go przekonwertować na format .ico za pomocą konwertera online, np. <a href="https://convertio.co/png-ico/" target="_blank">convertio.co</a></p>
+</body>
+</html> 
