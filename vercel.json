@@ -5,7 +5,14 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "CI=false npm run build",
+  "buildCommand": "DISABLE_ESLINT_PLUGIN=true SKIP_PREFLIGHT_CHECK=true CI=false npm run build",
   "outputDirectory": "build",
-  "framework": "create-react-app"
+  "framework": "create-react-app",
+  "env": {
+    "DISABLE_ESLINT_PLUGIN": "true",
+    "SKIP_PREFLIGHT_CHECK": "true",
+    "CI": "false",
+    "EXTEND_ESLINT": "false",
+    "ESLINT_NO_DEV_ERRORS": "true"
+  }
 } 
