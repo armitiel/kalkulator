@@ -213,4 +213,71 @@ export const resetPassword = async (token, newPassword) => {
     },
     body: JSON.stringify({ token, newPassword }),
   });
+};
+
+// Funkcje do obsługi wpłat
+export const getDeposits = async (token) => {
+  try {
+    const response = await fetch(`${API_URL}/deposits`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) throw new Error('Failed to fetch deposits');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching deposits:', error);
+    throw error;
+  }
+};
+
+export const addDeposit = async (token, depositData) => {
+  try {
+    const response = await fetch(`${API_URL}/deposits`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(depositData)
+    });
+    if (!response.ok) throw new Error('Failed to add deposit');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding deposit:', error);
+    throw error;
+  }
+};
+
+export const updateDepositStatus = async (token, depositId, status) => {
+  try {
+    const response = await fetch(`${API_URL}/deposits/${depositId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) throw new Error('Failed to update deposit status');
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating deposit status:', error);
+    throw error;
+  }
+};
+
+export const getDepositHistory = async (token, depositId) => {
+  try {
+    const response = await fetch(`${API_URL}/deposits/${depositId}/history`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) throw new Error('Failed to fetch deposit history');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching deposit history:', error);
+    throw error;
+  }
 }; 

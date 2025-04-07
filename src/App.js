@@ -21,12 +21,22 @@ const PolishFlag = () => (
 
 const UKFlag = () => (
   <svg viewBox="0 0 16 16" className="w-full h-full">
-    <g fillRule="evenodd">
+    <defs>
+      <clipPath id="uk-clip">
+        <path d="M0 0h16v16H0z"/>
+      </clipPath>
+    </defs>
+    <g clipPath="url(#uk-clip)">
+      {/* Niebieskie tło */}
       <path fill="#012169" d="M0 0h16v16H0z"/>
-      <path fill="#FFF" d="M0 0l16 16M16 0L0 16"/>
-      <path fill="#C8102E" d="M0 0l6 6L0 12M16 0l-6 6l6 6"/>
-      <path fill="#FFF" d="M8 0v16M0 8h16"/>
-      <path fill="#C8102E" d="M8 0v6M0 8h6M10 8h6M8 10v6"/>
+      {/* Biały krzyż św. Andrzeja */}
+      <path d="M0 0l16 16M16 0L0 16" stroke="#fff" strokeWidth="3"/>
+      {/* Czerwony krzyż św. Andrzeja */}
+      <path d="M0 0l16 16M16 0L0 16" stroke="#C8102E" strokeWidth="2"/>
+      {/* Biały krzyż św. Jerzego */}
+      <path d="M8 0v16M0 8h16" stroke="#fff" strokeWidth="5"/>
+      {/* Czerwony krzyż św. Jerzego */}
+      <path d="M8 0v16M0 8h16" stroke="#C8102E" strokeWidth="3"/>
     </g>
   </svg>
 );
@@ -229,7 +239,30 @@ const App = () => {
       activeTurnovers: 'Aktywne obroty w toku',
       additionalDailyProfit: 'Dodatkowy zysk transakcji dziennych',
       projectedTotalProfit: 'Przewidywany zysk całkowity',
-      turnoverProfit: 'Zysk z obrotu'
+      turnoverProfit: 'Zysk z obrotu',
+      expectedDepositProfit: 'Przewidywany zysk z wpłaty',
+      finalBalance: 'Stan końcowy',
+      balanceWithoutDeposit: 'Stan bez wpłaty',
+      activeDeposits: 'Aktywne wpłaty',
+      remainingDays: 'Pozostało dni',
+      progress: 'Postęp',
+      expectedProfit: 'Przewidywany zysk',
+      noActiveDeposits: 'Brak aktywnych wpłat',
+      exportHistory: 'Eksportuj historię',
+      importHistory: 'Importuj historię',
+      confirmImport: 'Czy na pewno chcesz zaimportować nową historię? Obecna historia zostanie zastąpiona.',
+      invalidImportFormat: 'Nieprawidłowy format pliku. Plik musi zawierać tablicę wpłat.',
+      importError: 'Wystąpił błąd podczas importowania historii.',
+      hours: 'godzin',
+      loadError: 'Wystąpił błąd podczas wczytywania wpłat',
+      addError: 'Wystąpił błąd podczas dodawania wpłaty',
+      deleteError: 'Wystąpił błąd podczas usuwania wpłaty',
+      savePlanError: 'Wystąpił błąd podczas zapisywania planu',
+      loadPlanError: 'Wystąpił błąd podczas wczytywania planu',
+      planSaved: 'Plan został zapisany',
+      planLoaded: 'Plan został wczytany',
+      savePlan: 'Zapisz plan',
+      loadPlan: 'Wczytaj plan',
     },
     en: {
       appName: 'Investment Tracker',
@@ -304,7 +337,30 @@ const App = () => {
       activeTurnovers: 'Active turnovers in progress',
       additionalDailyProfit: 'Additional daily transaction profit',
       projectedTotalProfit: 'Projected total profit',
-      turnoverProfit: 'Turnover profit'
+      turnoverProfit: 'Turnover profit',
+      expectedDepositProfit: 'Expected deposit profit',
+      finalBalance: 'Final balance',
+      balanceWithoutDeposit: 'Balance without deposit',
+      activeDeposits: 'Active Deposits',
+      remainingDays: 'Days Remaining',
+      progress: 'Progress',
+      expectedProfit: 'Expected Profit',
+      noActiveDeposits: 'No active deposits',
+      exportHistory: 'Export History',
+      importHistory: 'Import History',
+      confirmImport: 'Are you sure you want to import new history? Current history will be replaced.',
+      invalidImportFormat: 'Invalid file format. File must contain an array of deposits.',
+      importError: 'An error occurred while importing history.',
+      hours: 'hours',
+      loadError: 'An error occurred while loading deposits',
+      addError: 'An error occurred while adding deposit',
+      deleteError: 'An error occurred while deleting deposit',
+      savePlanError: 'An error occurred while saving plan',
+      loadPlanError: 'An error occurred while loading plan',
+      planSaved: 'Plan has been saved',
+      planLoaded: 'Plan has been loaded',
+      savePlan: 'Save plan',
+      loadPlan: 'Load plan',
     }
   };
 
@@ -680,13 +736,14 @@ const App = () => {
 
                 <Dashboard
                   currentBalance={currentBalance}
-                  updateBalance={updateBalance}
+                  updateBalance={setCurrentBalance}
                   dailySignals={dailySignals}
-                  updateDailySignals={updateDailySignals}
+                  updateDailySignals={setDailySignals}
                   selectedCurrency={selectedCurrency}
                   exchangeRates={exchangeRates}
                   translations={translations}
                   selectedLanguage={selectedLanguage}
+                  history={investmentHistory}
                 />
               </div>
             )}
