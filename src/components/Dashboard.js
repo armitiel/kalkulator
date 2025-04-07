@@ -97,90 +97,7 @@ const Dashboard = ({
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       {/* Główne wskaźniki */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {/* Stan konta */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            {isEditingBalance ? (
-              <div className="flex items-center space-x-2 w-full">
-                <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
-                <input
-                  type="number"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-32 p-1 text-gray-800 border rounded"
-                  step="0.01"
-                  min="0"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    const newBalance = parseFloat(editValue);
-                    if (!isNaN(newBalance) && newBalance >= 0) {
-                      updateBalance(newBalance);
-                      setIsEditingBalance(false);
-                      setEditValue('');
-                    }
-                  }}
-                  className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  ✓
-                </button>
-                <button
-                  onClick={() => {
-                    setIsEditingBalance(false);
-                    setEditValue('');
-                  }}
-                  className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <>
-                <div>
-                  <p className="text-sm text-gray-600">{translations[selectedLanguage].balance}</p>
-                  <p className="text-2xl font-bold">{currentBalance.toFixed(2)} USDT</p>
-                  <p className="text-sm text-gray-500">{(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                </div>
-                <button 
-                  onClick={() => {
-                    setEditValue(currentBalance.toString());
-                    setIsEditingBalance(true);
-                  }}
-                  className="p-1 hover:bg-blue-100 rounded-full transition-colors"
-                  title={translations[selectedLanguage].editBalance}
-                >
-                  <Pencil className="text-blue-600" size={16} />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-        
-        {/* Dzienny zysk */}
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyProfit}</p>
-              <p className="text-2xl font-bold">{profitStats.dailyProfit.toFixed(2)} USDT</p>
-              <p className="text-sm text-gray-500">{(profitStats.dailyProfit * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-            </div>
-            <TrendingUp className="text-green-500" />
-          </div>
-        </div>
-        
-        {/* Miesięczny zysk */}
-        <div className="bg-orange-50 p-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">{translations[selectedLanguage].monthlyProfit}</p>
-              <p className="text-2xl font-bold">{profitStats.monthlyProfit.toFixed(2)} USDT</p>
-              <p className="text-sm text-gray-500">{(profitStats.monthlyProfit * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-            </div>
-            <CalendarDays className="text-orange-500" />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
         
         {/* Liczba sygnałów */}
         <div className="bg-purple-50 p-4 rounded-lg">
@@ -222,9 +139,63 @@ const Dashboard = ({
         </div>
       </div>
       
-      {/* Wybór okresu projekcji */}
+      {/* Informacje o stanie konta i wybór okresu projekcji */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold">{translations[selectedLanguage].profitForecast}</h2>
+        <div className="flex items-center">
+          <h2 className="text-xl font-bold mr-4">{translations[selectedLanguage].profitForecast}</h2>
+          <div className="flex items-center bg-blue-50 p-2 rounded-lg">
+            <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
+            {isEditingBalance ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="w-24 p-1 text-gray-800 border rounded"
+                  step="0.01"
+                  min="0"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    const newBalance = parseFloat(editValue);
+                    if (!isNaN(newBalance) && newBalance >= 0) {
+                      updateBalance(newBalance);
+                      setIsEditingBalance(false);
+                      setEditValue('');
+                    }
+                  }}
+                  className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingBalance(false);
+                    setEditValue('');
+                  }}
+                  className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <span className="font-semibold mr-2">{currentBalance.toFixed(2)} USDT</span>
+                <button
+                  onClick={() => {
+                    setEditValue(currentBalance.toString());
+                    setIsEditingBalance(true);
+                  }}
+                  className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+                  title={translations[selectedLanguage].editBalance}
+                >
+                  <Pencil className="text-blue-600" size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
           <Calendar className="text-blue-600" size={20} />
           <select
