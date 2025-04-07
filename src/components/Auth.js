@@ -30,6 +30,7 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
   const [loading, setLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
   const [language, setLanguage] = useState(defaultLanguage); // Używamy domyślnego języka z props
+  const [isIOS, setIsIOS] = useState(false); // Flaga do wykrywania urządzeń iOS
 
   // Teksty w różnych językach
   const translations = {
@@ -93,6 +94,17 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
     }
   };
 
+  // Wykrywanie urządzeń iOS przy montowaniu komponentu
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    setIsIOS(isIOSDevice);
+    
+    if (isIOSDevice) {
+      console.log('Wykryto urządzenie iOS - używanie alternatywnej metody logowania');
+    }
+  }, []);
+
   // Sprawdza token w URL (dla linku resetowania hasła)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -109,10 +121,18 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
     e.preventDefault();
     setError('');
     
+    // Prosta walidacja dla wszystkich formularzy
+    if (isLogin) {
+      if (username.trim() === '' || password === '') {
+        setError('Email i hasło są wymagane');
+        return;
+      }
+    }
+    
     // Lokalna walidacja przed wysłaniem
     if (!isLogin && !isResetPassword && !isSetNewPassword) {
       // Walidacja formatu email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(username)) {
         setError(translations[language].validEmailRequired);
         return;
@@ -142,7 +162,64 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
       let response;
       
       if (isLogin) {
-        response = await login(username, password);
+        // Specjalna logika dla urządzeń iOS
+        if (isIOS) {
+          try {
+            // Najpierw próbujemy standardowej metody
+            response = await login(username, password);
+          } catch (iosError) {
+            console.error('Błąd logowania na iOS, próba alternatywnej metody:', iosError);
+            
+            // Alternatywna metoda dla iOS - używamy dedykowanego endpointu
+            const apiUrl = process.env.NODE_ENV === 'production'
+              ? `${window.location.origin}/api/login-ios`
+              : 'http://localhost:5000/api/login-ios';
+            
+            // Próba 1: Użycie FormData zamiast JSON
+            try {
+              const formData = new FormData();
+              formData.append('username', username.trim());
+              formData.append('password', password);
+              
+              const formResponse = await fetch(apiUrl, {
+                method: 'POST',
+                body: formData
+              });
+              
+              if (!formResponse.ok) {
+                throw new Error(`Błąd HTTP: ${formResponse.status}`);
+              }
+              
+              response = await formResponse.json();
+            } catch (formError) {
+              console.error('Próba FormData nie powiodła się:', formError);
+              
+              // Próba 2: Użycie zwykłego fetch z JSON, ale z innymi nagłówkami
+              const fetchResponse = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                  username: username.trim(),
+                  password
+                }),
+              });
+              
+              if (!fetchResponse.ok) {
+                const errorText = await fetchResponse.text();
+                throw new Error(errorText || `Błąd HTTP: ${fetchResponse.status}`);
+              }
+              
+              response = await fetchResponse.json();
+            }
+          }
+        } else {
+          // Standardowa metoda dla innych urządzeń
+          response = await login(username, password);
+        }
+        
         localStorage.setItem('token', response.token);
         localStorage.setItem('userId', response.userId);
         localStorage.setItem('username', response.username);
@@ -194,7 +271,16 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
         onLogin(response);
       }
     } catch (err) {
-      setError(err.message);
+      console.error('Error during authentication:', err);
+      
+      // Lepsze komunikaty błędów, szczególnie dla iOS
+      if (err.message.includes('SyntaxError') || err.message.includes('Unexpected token')) {
+        setError('Problem z połączeniem. Spróbuj ponownie.');
+      } else if (err.message.includes('NetworkError') || err.message.includes('Failed to fetch')) {
+        setError('Nie można połączyć się z serwerem. Sprawdź połączenie internetowe.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }

@@ -62,8 +62,28 @@ async function sendPasswordResetEmail(email, resetToken) {
 }
 
 // Middleware
-app.use(cors());
-app.use(bodyParser.json());
+// Obsługa formularzy dla alternatywnej metody logowania na iOS
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Rozszerzona konfiguracja CORS dla lepszej obsługi urządzeń iOS
+app.use(cors({
+  origin: '*', // W produkcji należy określić dozwolone domeny
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
+}));
+
+// Dodajemy obsługę błędów parsowania JSON
+app.use(bodyParser.json({
+  verify: (req, res, buf, encoding) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ message: 'Invalid JSON format' });
+      throw new Error('Invalid JSON format');
+    }
+  }
+}));
 
 // Inicjalizacja bazy danych
 const db = new sqlite3.Database('./database.sqlite', (err) => {
@@ -185,24 +205,99 @@ app.post('/api/register', async (req, res) => {
           const token = jwt.sign({ id: userId, username }, JWT_SECRET, { expiresIn: '24h' });
           res.status(201).json({ token, userId, username });
         });
-    });
+      });
+      
+      // Specjalny endpoint do debugowania problemów z logowaniem na iOS
+      if (process.env.NODE_ENV !== 'production') {
+        app.post('/api/login-debug', (req, res) => {
+          console.log('Debug login request headers:', req.headers);
+          console.log('Debug login request body:', req.body);
+          
+          try {
+            // Zwracamy informacje o otrzymanym żądaniu
+            res.json({
+              received: {
+                headers: req.headers,
+                body: req.body,
+                userAgent: req.headers['user-agent']
+              },
+              message: 'Debug endpoint działa poprawnie'
+            });
+          } catch (error) {
+            console.error('Błąd w endpoint debug:', error);
+            res.status(500).json({ error: error.message });
+          }
+        });
+      }
   } catch (error) {
     res.status(500).json({ message: 'Błąd serwera' });
   }
+  
+  // Alternatywny endpoint logowania specjalnie dla urządzeń iOS
+  app.post('/api/login-ios', (req, res) => {
+    console.log('Otrzymano żądanie logowania iOS');
+    console.log('Content-Type:', req.headers['content-type']);
+    const username = req.body.username;
+    const password = req.body.password;
+  
+    // Sprawdzamy, czy dane są poprawne
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
+    }
+  
+    // Sanityzacja danych wejściowych
+    const sanitizedUsername = username.trim();
+  
+    // Logika logowania identyczna jak w głównym endpoincie
+    db.get('SELECT * FROM users WHERE username = ?', [sanitizedUsername], async (err, user) => {
+      if (err) {
+        console.error('Błąd bazy danych podczas logowania iOS:', err);
+        return res.status(500).json({ message: 'Błąd podczas logowania' });
+      }
+      
+      if (!user) {
+        return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
+      }
+      
+      try {
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+          return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
+        }
+        
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, userId: user.id, username: user.username });
+      } catch (error) {
+        console.error('Błąd podczas weryfikacji hasła:', error);
+        return res.status(500).json({ message: 'Błąd podczas logowania' });
+      }
+    });
+  });
 });
-
 // Logowanie użytkownika
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
+  // Sprawdzamy, czy dane są poprawnego typu
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({
+      message: 'Nieprawidłowy format danych. Username i password muszą być typu string.'
+    });
+  }
+
+  // Sanityzacja danych wejściowych
+  const sanitizedUsername = username ? username.trim() : '';
+
+  if (!sanitizedUsername || !password) {
     return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
   }
 
-  db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+  db.get('SELECT * FROM users WHERE username = ?', [sanitizedUsername], async (err, user) => {
     if (err) {
+      console.error('Błąd bazy danych podczas logowania:', err);
       return res.status(500).json({ message: 'Błąd podczas logowania' });
     }
+    
     
     if (!user) {
       return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });

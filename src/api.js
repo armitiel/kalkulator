@@ -5,49 +5,133 @@ const API_URL = process.env.NODE_ENV === 'production'
 
 // Funkcje pomocnicze do obsługi API
 const handleResponse = async (response) => {
+  // Sprawdź, czy odpowiedź jest OK
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Wystąpił błąd podczas wykonywania operacji');
+    // Próbuj odczytać odpowiedź jako JSON
+    try {
+      const contentType = response.headers.get('content-type');
+      
+      // Jeśli odpowiedź to JSON, odczytaj szczegóły błędu
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Wystąpił błąd podczas wykonywania operacji');
+      }
+      // Jeśli to nie JSON, spróbuj odczytać jako tekst
+      else {
+        const errorText = await response.text();
+        throw new Error(errorText || `Błąd HTTP: ${response.status} ${response.statusText}`);
+      }
+    } catch (jsonError) {
+      // Jeśli nie udało się przetworzyć odpowiedzi, rzuć oryginalny błąd HTTP
+      if (jsonError instanceof Error && jsonError.message) {
+        throw jsonError;
+      } else {
+        throw new Error(`Błąd HTTP: ${response.status} ${response.statusText}`);
+      }
+    }
   }
-  return response.json();
+  
+  // Próbuj odczytać odpowiedź jako JSON
+  try {
+    const contentType = response.headers.get('content-type');
+    
+    // Jeśli odpowiedź to JSON, parsuj ją
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    }
+    // Jeśli to nie JSON, zwróć tekst
+    else {
+      const text = await response.text();
+      try {
+        // Spróbuj sparsować jako JSON (czasem serwer nie ustawia prawidłowego Content-Type)
+        return JSON.parse(text);
+      } catch (e) {
+        // Jeśli nie da się sparsować, zwróć tekst
+        return { message: text };
+      }
+    }
+  } catch (error) {
+    console.error('Błąd podczas parsowania odpowiedzi:', error);
+    throw new Error('Nieprawidłowy format odpowiedzi z serwera');
+  }
+};
+
+// Funkcja pomocnicza do obsługi zapytań z obsługą błędów
+const fetchWithErrorHandling = async (url, options = {}) => {
+  try {
+    // Dodajemy timeout dla zapytania
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 sekund timeout
+    
+    const fetchOptions = {
+      ...options,
+      signal: controller.signal
+    };
+    
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+    
+    return await handleResponse(response);
+  } catch (error) {
+    console.error(`Błąd podczas zapytania do ${url}:`, error);
+    
+    // Lepsze komunikaty błędów
+    if (error.name === 'AbortError') {
+      throw new Error('Przekroczono czas oczekiwania na odpowiedź serwera.');
+    } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+      throw new Error('Nie można połączyć się z serwerem. Sprawdź połączenie internetowe.');
+    }
+    
+    throw error;
+  }
 };
 
 // Funkcje autoryzacji
 export const register = async (username, password) => {
-  const response = await fetch(`${API_URL}/register`, {
+  return fetchWithErrorHandling(`${API_URL}/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ username, password }),
   });
-  return handleResponse(response);
 };
 
 export const login = async (username, password) => {
-  const response = await fetch(`${API_URL}/login`, {
+  // Zapewniamy, że dane są odpowiednio sformatowane
+  const sanitizedUsername = username.trim();
+  
+  return fetchWithErrorHandling(`${API_URL}/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json', // Dodanie nagłówka Accept
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({
+      username: sanitizedUsername,
+      password
+    }),
   });
-  return handleResponse(response);
 };
 
 // Funkcje portfela
 export const getPortfolio = async (token) => {
-  const response = await fetch(`${API_URL}/portfolio`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  return handleResponse(response);
+  try {
+    return await fetchWithErrorHandling(`${API_URL}/portfolio`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    console.error('Nie udało się pobrać danych portfela. Używam danych lokalnych.');
+    // Zwróć null, aby aplikacja mogła użyć lokalnych danych
+    return null;
+  }
 };
 
 export const updatePortfolio = async (token, data) => {
   try {
-    const response = await fetch(`${API_URL}/portfolio`, {
+    return await fetchWithErrorHandling(`${API_URL}/portfolio`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -58,26 +142,31 @@ export const updatePortfolio = async (token, data) => {
         daily_signals: Number(data.daily_signals)
       }),
     });
-    return handleResponse(response);
   } catch (error) {
     console.error('Błąd podczas aktualizacji portfela:', error);
+    // Rzuć błąd, aby aplikacja mogła go obsłużyć
     throw error;
   }
 };
 
 // Funkcje transakcji
 export const getTransactions = async (token) => {
-  const response = await fetch(`${API_URL}/transactions`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-  return handleResponse(response);
+  try {
+    return await fetchWithErrorHandling(`${API_URL}/transactions`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    console.error('Nie udało się pobrać transakcji. Używam danych lokalnych.');
+    // Zwróć pustą tablicę, aby aplikacja mogła użyć lokalnych danych
+    return [];
+  }
 };
 
 export const addTransaction = async (token, transaction) => {
   try {
-    const response = await fetch(`${API_URL}/transactions`, {
+    return await fetchWithErrorHandling(`${API_URL}/transactions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -90,13 +179,6 @@ export const addTransaction = async (token, transaction) => {
         description: transaction.description
       }),
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Wystąpił błąd podczas dodawania transakcji');
-    }
-
-    return await response.json();
   } catch (error) {
     console.error('Błąd podczas dodawania transakcji:', error);
     throw error;
@@ -104,34 +186,31 @@ export const addTransaction = async (token, transaction) => {
 };
 
 export const deleteTransaction = async (token, transactionId) => {
-  const response = await fetch(`${API_URL}/transactions/${transactionId}`, {
+  return fetchWithErrorHandling(`${API_URL}/transactions/${transactionId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
     },
   });
-  return handleResponse(response);
 };
 
 // Funkcje resetowania hasła
 export const requestPasswordReset = async (email) => {
-  const response = await fetch(`${API_URL}/reset-password-request`, {
+  return fetchWithErrorHandling(`${API_URL}/reset-password-request`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ email }),
   });
-  return handleResponse(response);
 };
 
 export const resetPassword = async (token, newPassword) => {
-  const response = await fetch(`${API_URL}/reset-password`, {
+  return fetchWithErrorHandling(`${API_URL}/reset-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ token, newPassword }),
   });
-  return handleResponse(response);
 }; 
