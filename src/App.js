@@ -126,17 +126,25 @@ const App = () => {
   const [editValue, setEditValue] = useState('');
   const [isEditingBalance, setIsEditingBalance] = useState(false);
 
-  // Stan dla planera wypłat
-  const [withdrawalPlan, setWithdrawalPlan] = useState({
-    monthlyWithdrawal: 0,
-    startMonth: 0,
-    projectionMonths: 12,
-    projectionData: [],
-    inputValue: '',
-    error: '',
-    withdrawalFee: { rate: 0.05, amount: 0 },
-    possibleStartMonth: 0
+  // Stan dla planera wypłat - inicjalizacja z localStorage
+  const [withdrawalPlan, setWithdrawalPlan] = useState(() => {
+    const savedPlan = localStorage.getItem('withdrawalPlan');
+    return savedPlan ? JSON.parse(savedPlan) : {
+      monthlyWithdrawal: 0,
+      startMonth: 0,
+      projectionMonths: 12,
+      projectionData: [],
+      inputValue: '',
+      error: '',
+      withdrawalFee: { rate: 0.05, amount: 0 },
+      possibleStartMonth: 0
+    };
   });
+
+  // Zapisujemy plan wypłat przy każdej zmianie
+  useEffect(() => {
+    localStorage.setItem('withdrawalPlan', JSON.stringify(withdrawalPlan));
+  }, [withdrawalPlan]);
 
   // Tłumaczenia
   const translations = {
