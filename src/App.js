@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Settings, TrendingUp, DollarSign, Calendar, BarChart2, PieChart, AlertTriangle, Clock, LogOut, ArrowUpRight, TrendingDown, Pencil, Lightbulb } from 'lucide-react';
-import Calculator from './components/Calculator';
+import Dashboard from './components/Dashboard';
 import InvestmentHistory from './components/InvestmentHistory';
 import WithdrawalPlanner from './components/WithdrawalPlanner';
 import Auth from './components/Auth';
@@ -579,14 +579,7 @@ const App = () => {
                 <TrendingUp size={18} />
                 <span>{translations[selectedLanguage].dashboard}</span>
               </button>
-              <button 
-                className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'calculator' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
-                onClick={() => setActiveTab('calculator')}
-              >
-                <DollarSign size={18} />
-                <span>{translations[selectedLanguage].profitForecast}</span>
-              </button>
-              <button 
+              <button
                 className={`flex items-center justify-center space-x-1 p-3 ${activeTab === 'analytics' ? 'bg-blue-100 text-blue-600 rounded-md' : 'text-gray-600'}`}
                 onClick={() => setActiveTab('analytics')}
               >
@@ -677,109 +670,19 @@ const App = () => {
                   </div>
                 </div>
 
-                {/* Statystyki */}
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                  <h2 className="text-lg font-semibold mb-4">{translations[selectedLanguage].investmentStats}</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyProfit}</p>
-                          <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals).toFixed(2)} USDT</p>
-                          <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                        </div>
-                        <ArrowUpRight className="text-blue-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">{translations[selectedLanguage].monthlyProfit}</p>
-                          <p className="text-2xl font-bold">{(currentBalance * 0.006 * dailySignals * 30).toFixed(2)} USDT</p>
-                          <p className="text-sm text-gray-500">{(currentBalance * 0.006 * dailySignals * 30 * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                        </div>
-                        <TrendingUp className="text-green-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">{translations[selectedLanguage].totalDeposits}</p>
-                          <p className="text-2xl font-bold">{deposits.reduce((sum, deposit) => sum + deposit.amount, 0).toFixed(2)} USDT</p>
-                          <p className="text-sm text-gray-500">{(deposits.reduce((sum, deposit) => sum + deposit.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                        </div>
-                        <DollarSign className="text-purple-500" />
-                      </div>
-                    </div>
-
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600">{translations[selectedLanguage].totalWithdrawals}</p>
-                          <p className="text-2xl font-bold">{withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0).toFixed(2)} USDT</p>
-                          <p className="text-sm text-gray-500">{(withdrawals.reduce((sum, withdrawal) => sum + withdrawal.amount, 0) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
-                        </div>
-                        <TrendingDown className="text-red-500" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Edycja sygnałów */}
-                  <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-lg font-semibold">{translations[selectedLanguage].signals}</h2>
-                      <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-1">
-                          <button 
-                            onClick={() => {
-                              if (dailySignals > 2) {
-                                setDailySignals(dailySignals - 1);
-                              }
-                            }}
-                            className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
-                            disabled={dailySignals <= 2}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          <span className="text-2xl font-bold min-w-[2.5rem] text-center">{dailySignals}</span>
-                          <button 
-                            onClick={() => {
-                              if (dailySignals < 5) {
-                                setDailySignals(dailySignals + 1);
-                              }
-                            }}
-                            className="p-2 text-gray-500 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-200 rounded-full hover:border-blue-200 transition-colors"
-                            disabled={dailySignals >= 5}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-sm text-gray-600">
-                      {translations[selectedLanguage].signalInfo} ({dailySignals} {translations[selectedLanguage].signals} = {(dailySignals * 0.6).toFixed(1)}% {selectedLanguage === 'pl' ? 'dziennie' : 'daily'})
-                    </div>
-                  </div>
-                </div>
+                <Dashboard
+                  currentBalance={currentBalance}
+                  updateBalance={updateBalance}
+                  dailySignals={dailySignals}
+                  updateDailySignals={updateDailySignals}
+                  selectedCurrency={selectedCurrency}
+                  exchangeRates={exchangeRates}
+                  translations={translations}
+                  selectedLanguage={selectedLanguage}
+                />
               </div>
             )}
 
-            {activeTab === 'calculator' && (
-              <Calculator 
-                currentBalance={currentBalance}
-                dailySignals={dailySignals}
-                selectedCurrency={selectedCurrency}
-                exchangeRates={exchangeRates}
-                translations={translations}
-                selectedLanguage={selectedLanguage}
-              />
-            )}
 
             {activeTab === 'analytics' && (
               <div className="grid grid-cols-1 gap-4">
