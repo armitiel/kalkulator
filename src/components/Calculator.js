@@ -13,15 +13,19 @@ const Calculator = ({ currentBalance, dailySignals, selectedCurrency, exchangeRa
 
   // Funkcja do generowania nazw miesięcy
   const getMonthNames = (months) => {
-    const monthNames = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 
-                       'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'];
+    const monthNames = {
+      pl: ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
+           'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
+      en: ['January', 'February', 'March', 'April', 'May', 'June',
+           'July', 'August', 'September', 'October', 'November', 'December']
+    };
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const result = [];
     
     for (let i = 0; i < months; i++) {
       const monthIndex = (currentMonth + i) % 12;
-      result.push(monthNames[monthIndex]);
+      result.push(monthNames[selectedLanguage][monthIndex]);
     }
     
     return result;
@@ -36,7 +40,7 @@ const Calculator = ({ currentBalance, dailySignals, selectedCurrency, exchangeRa
 
     // Dodaj punkt początkowy
     data.push({
-      month: 'Teraz',
+      month: translations[selectedLanguage].currently || 'Now',
       capital: currentBalance,
       growth: 0
     });
@@ -65,7 +69,7 @@ const Calculator = ({ currentBalance, dailySignals, selectedCurrency, exchangeRa
       dailyProfit: totalGrowth / totalDays,
       monthlyProfit: totalGrowth / projectionMonths
     });
-  }, [currentBalance, dailySignals, projectionMonths]);
+  }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage]);
 
   // Funkcja do przeliczania wartości na USDT
   const convertToUSDT = (value) => {
@@ -114,21 +118,21 @@ const Calculator = ({ currentBalance, dailySignals, selectedCurrency, exchangeRa
             />
             <Tooltip 
               formatter={(value) => value.toFixed(2)}
-              labelFormatter={(label) => `Miesiąc: ${label}`}
+              labelFormatter={(label) => `${translations[selectedLanguage].month}: ${label}`}
             />
             <Legend />
             <Line 
               type="monotone" 
               dataKey="capital" 
               stroke="#3B82F6" 
-              name="Kapitał (USDT)"
+              name={`${translations[selectedLanguage].capital} (USDT)`}
               dot={false}
             />
             <Line 
               type="monotone" 
               dataKey="growth" 
               stroke="#10B981" 
-              name="Wzrost (USDT)"
+              name={`${translations[selectedLanguage].growth} (USDT)`}
               dot={false}
             />
           </LineChart>

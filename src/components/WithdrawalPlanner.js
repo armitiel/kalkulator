@@ -65,7 +65,8 @@ const WithdrawalPlanner = ({
 
   // Oblicz status obrotu dla wszystkich wpłat
   const calculateTotalTurnoverStatus = (targetDate) => {
-    const dailyReturnRate = 0.006 * dailySignals;
+    const ratePerSignal = 0.006; // 0,6% na sygnał
+    const totalDailyRate = ratePerSignal * dailySignals;
     let totalDeposits = 0;
     let totalTurnover = 0;
     let activeDeposits = [];
@@ -79,27 +80,54 @@ const WithdrawalPlanner = ({
       };
     }
 
+    // Oblicz dzienny zysk z całego kapitału
+    const dailyProfit = currentBalance * totalDailyRate;
+
     deposits.forEach(deposit => {
       const depositDate = new Date(deposit.date);
       const daysSinceDeposit = Math.floor((targetDate - depositDate) / (1000 * 60 * 60 * 24));
       
-      // Oblicz dzienny zysk dla tej wpłaty
-      const dailyProfit = currentBalance * dailyReturnRate;
-      const turnoverForDeposit = dailyProfit * daysSinceDeposit;
+      // Oblicz dni potrzebne do obrotu
+      const daysToTurnover = dailyProfit > 0 ? Math.ceil(deposit.amount / dailyProfit) : Math.ceil(1 / totalDailyRate);
       
-      // Sprawdź czy obrót jest zakończony
-      const isCompleted = turnoverForDeposit >= deposit.amount;
+      // Oblicz udział tej wpłaty w całkowitym kapitale (z zabezpieczeniem przed dzieleniem przez zero)
+      const depositShare = currentBalance > 0 ? deposit.amount / currentBalance : 1;
+      
+      // Oblicz dzienny zysk dla tej konkretnej wpłaty
+      const dailyProfitForDeposit = dailyProfit * depositShare;
+      
+      // Oblicz całkowity zysk z tej wpłaty na dzisiaj
+      const totalProfit = dailyProfitForDeposit * daysSinceDeposit;
+      
+      // Zysk z obrotu to całkowity zysk bez ograniczenia do kwoty wpłaty
+      const turnoverForDeposit = totalProfit;
+      
+      // Sprawdź czy obrót jest zakończony (gdy zysk osiągnął wartość wpłaty)
+      const isCompleted = totalProfit >= deposit.amount;
       
       if (!isCompleted) {
+        // Oblicz pozostałe dni do obrotu
+        const daysLeft = Math.max(0, daysToTurnover - daysSinceDeposit);
+        
+        // Oblicz przewidywany przyszły zysk (pozostałe dni * dzienny zysk z wpłaty)
+        const projectedFutureProfit = daysLeft * dailyProfitForDeposit;
+        
+        // Oblicz szacowaną datę zakończenia obrotu
+        const estimatedCompletionDate = new Date(depositDate);
+        estimatedCompletionDate.setDate(depositDate.getDate() + daysToTurnover);
+        
         activeDeposits.push({
           amount: deposit.amount,
           remainingTurnover: deposit.amount - turnoverForDeposit,
-          estimatedCompletionDate: new Date(depositDate.getTime() + (deposit.amount / dailyProfit) * 24 * 60 * 60 * 1000)
+          daysLeft: daysLeft,
+          projectedFutureProfit: parseFloat(projectedFutureProfit.toFixed(2)),
+          dailyProfitForDeposit: parseFloat(dailyProfitForDeposit.toFixed(2)),
+          estimatedCompletionDate: estimatedCompletionDate
         });
       }
       
       totalDeposits += deposit.amount;
-      totalTurnover += Math.min(turnoverForDeposit, deposit.amount);
+      totalTurnover += turnoverForDeposit;
     });
 
     return {

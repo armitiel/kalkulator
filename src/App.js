@@ -74,6 +74,11 @@ const App = () => {
     }
   }, [activeTab, isAuthenticated, currentBalance, dailySignals, user]);
 
+  // Dodatkowo zapisujemy historię inwestycji przy każdej zmianie
+  useEffect(() => {
+    localStorage.setItem('investmentHistory', JSON.stringify(investmentHistory));
+  }, [investmentHistory]);
+
   // Funkcja do bezpiecznej aktualizacji salda
   const updateBalance = (newBalance) => {
     if (typeof newBalance === 'number' && !isNaN(newBalance) && newBalance >= 0) {
@@ -205,7 +210,10 @@ const App = () => {
       resetApp: 'Resetuj aplikację',
       addDeposit: 'Dodaj wpłatę',
       withdrawalWarning: 'Uwaga: Wypłata przekracza miesięczny zysk',
-      activeTurnovers: 'Aktywne obroty w toku'
+      activeTurnovers: 'Aktywne obroty w toku',
+      additionalDailyProfit: 'Dodatkowy zysk transakcji dziennych',
+      projectedTotalProfit: 'Przewidywany zysk całkowity',
+      turnoverProfit: 'Zysk z obrotu'
     },
     en: {
       appName: 'Investment Tracker',
@@ -277,7 +285,10 @@ const App = () => {
       resetApp: 'Reset Application',
       addDeposit: 'Add Deposit',
       withdrawalWarning: 'Warning: Withdrawal exceeds monthly profit',
-      activeTurnovers: 'Active turnovers in progress'
+      activeTurnovers: 'Active turnovers in progress',
+      additionalDailyProfit: 'Additional daily transaction profit',
+      projectedTotalProfit: 'Projected total profit',
+      turnoverProfit: 'Turnover profit'
     }
   };
 
@@ -790,6 +801,16 @@ const App = () => {
                   selectedLanguage={selectedLanguage}
                   selectedCurrency={selectedCurrency}
                   exchangeRates={exchangeRates}
+                  dailyRateOfReturn={(dailySignals * 0.6)}
+                  balance={currentBalance}
+                  totalDeposits={deposits.reduce((sum, deposit) => sum + deposit.amount, 0)}
+                  setTotalDeposits={(newDeposits) => {
+                    setDeposits(newDeposits);
+                  }}
+                  dailyCapital={0}
+                  setDailyCapital={(newCapital) => {
+                    // This is a placeholder implementation. You might want to update the state accordingly
+                  }}
                 />
                 <div className="mt-4 bg-amber-50 p-4 rounded-lg shadow-sm">
                   <div className="flex items-start space-x-3">

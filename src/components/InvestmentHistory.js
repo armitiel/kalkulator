@@ -3,7 +3,7 @@ import { AlertTriangle, Trash2, Clock } from 'lucide-react';
 import { Calendar } from 'lucide-react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 
-const InvestmentHistory = ({ 
+export const InvestmentHistory = ({ 
   history, 
   setHistory, 
   currentBalance, 
@@ -12,7 +12,13 @@ const InvestmentHistory = ({
   translations,
   selectedLanguage,
   selectedCurrency,
-  exchangeRates
+  exchangeRates,
+  dailyRateOfReturn,
+  balance,
+  totalDeposits,
+  setTotalDeposits,
+  dailyCapital,
+  setDailyCapital
 }) => {
   const [newDeposit, setNewDeposit] = useState({
     amount: '',
@@ -27,6 +33,38 @@ const InvestmentHistory = ({
   const [depositDate, setDepositDate] = useState('');
   const [projectionData, setProjectionData] = useState([]);
 
+  // Wczytaj historię wpłat z localStorage przy inicjalizacji
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('investmentHistory');
+    if (savedHistory) {
+      try {
+        const parsedHistory = JSON.parse(savedHistory);
+        
+        // Sprawdzamy, czy historia się faktycznie zmieniła, aby uniknąć nieskończonej pętli
+        const currentHistoryStr = JSON.stringify(history);
+        const savedHistoryStr = JSON.stringify(parsedHistory);
+        
+        if (currentHistoryStr !== savedHistoryStr) {
+          setHistory(parsedHistory);
+          
+          // Oblicz aktualne saldo na podstawie zapisanej historii
+          const totalBalance = parsedHistory.reduce((sum, deposit) => sum + parseFloat(deposit.amount), 0);
+          setCurrentBalance(totalBalance);
+        }
+      } catch (error) {
+        console.error('Błąd podczas parsowania historii z localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Zapisz historię wpłat do localStorage przy każdej zmianie
+  useEffect(() => {
+    // Zapobiegamy zapisowi przy pierwszym renderowaniu, kiedy historia może być pusta
+    if (history && history.length > 0) {
+      localStorage.setItem('investmentHistory', JSON.stringify(history));
+    }
+  }, [history]);
+
   // Oblicz dzienny obrót na podstawie salda i sygnałów dziennych
   const calculateDailyTurnover = () => {
     const dailyReturn = 0.006; // 0.6% dziennego zwrotu
@@ -36,83 +74,101 @@ const InvestmentHistory = ({
 
   // Oblicz status obrotu dla wpłaty
   const calculateTurnoverStatus = (deposit) => {
+    if (!deposit || !deposit.date || !deposit.amount) return null;
+    
     const depositDate = new Date(deposit.date);
     const currentDate = new Date();
-    const daysSinceDeposit = Math.floor((currentDate - depositDate) / (1000 * 60 * 60 * 24));
     
-    const dailyReturnRate = 0.006 * dailySignals; // 1.8% przy 3 sygnałach
+    // Dni od złożenia depozytu
+    const daysSinceDeposit = Math.max(1, Math.floor((currentDate - depositDate) / (1000 * 60 * 60 * 24)));
     
-    // Oblicz dzienny zysk od aktualnego stanu konta
-    const dailyProfit = currentBalance * dailyReturnRate;
+    // Parametry do obliczeń
+    const depositAmount = parseFloat(deposit.amount);
+    const effectiveDailySignals = dailySignals || 3; // Domyślnie 3 sygnały dziennie
+    const ratePerSignal = 0.006; // 0,6% na sygnał
     
-    // Oblicz sumę zysków do tej pory (tylko z dziennych zysków)
-    const totalTurnover = dailyProfit * daysSinceDeposit;
+    // Całkowity dzienny procent zysku
+    const totalDailyRate = ratePerSignal * effectiveDailySignals;
     
-    // Oblicz postęp jako stosunek sumy zysków do kwoty wpłaty
-    const turnoverProgress = Math.min(1, totalTurnover / deposit.amount);
+    // Oblicz dzienny zysk z całego kapitału
+    const dailyProfit = balance * totalDailyRate;
     
-    // Oblicz ile dni potrzeba na osiągnięcie obrotu równego wpłacie
-    const daysToComplete = Math.ceil(deposit.amount / dailyProfit);
+    // Liczba dni potrzebna do wygenerowania kwoty równej wpłacie
+    let daysToTurnover;
     
-    // Oblicz pozostałe dni
-    const daysLeft = Math.max(0, daysToComplete - daysSinceDeposit);
+    if (dailyProfit <= 0) {
+      // Jeśli nie ma zysku, użyj standardowego wzoru
+      daysToTurnover = Math.ceil(1 / totalDailyRate);
+    } else {
+      daysToTurnover = Math.ceil(depositAmount / dailyProfit);
+    }
     
-    // Oblicz datę zakończenia
+    // Oblicz udział tej wpłaty w całkowitym kapitale (z zabezpieczeniem przed dzieleniem przez zero)
+    const depositShare = balance > 0 ? depositAmount / balance : 1;
+    
+    // Oblicz dzienny zysk dla tej konkretnej wpłaty
+    const dailyProfitForDeposit = dailyProfit * depositShare;
+    
+    // Oblicz całkowity zysk z tej wpłaty na dzisiaj
+    const totalProfit = dailyProfitForDeposit * daysSinceDeposit;
+    
+    // Zysk z obrotu to całkowity zysk bez ograniczenia do kwoty wpłaty
+    const turnoverProfit = totalProfit;
+    
+    // Pozostałe dni do pełnego obrotu
+    const daysLeft = Math.max(0, daysToTurnover - daysSinceDeposit);
+    
+    // Przewidywany przyszły zysk (pozostałe dni * dzienny zysk z wpłaty)
+    const projectedFutureProfit = daysLeft * dailyProfitForDeposit;
+    
+    // Data zakończenia obrotu
     const completionDate = new Date(depositDate);
-    completionDate.setDate(completionDate.getDate() + daysToComplete);
+    completionDate.setDate(completionDate.getDate() + daysToTurnover);
     
-    console.log('Status obrotu:', {
-      depositAmount: deposit.amount,
-      currentBalance,
-      dailyReturnRate: (dailyReturnRate * 100).toFixed(1) + '%',
-      dailyProfit,
-      daysToComplete,
-      daysLeft,
-      totalTurnover,
-      turnoverProgress: (turnoverProgress * 100).toFixed(2) + '%',
-      daysSinceDeposit
-    });
+    // Procent postępu obrotu
+    const turnoverProgress = Math.min(100, (daysSinceDeposit / daysToTurnover) * 100);
+    
+    console.log(`Wpłata: ${depositAmount} USDT, Dzienny zysk całkowity: ${dailyProfit.toFixed(2)} USDT, Dzienny zysk wpłaty: ${dailyProfitForDeposit.toFixed(2)} USDT, Dni do obrotu: ${daysToTurnover}, Postęp: ${turnoverProgress.toFixed(1)}%, Pozostało dni: ${daysLeft}, Przyszły zysk: ${projectedFutureProfit.toFixed(2)} USDT`);
     
     return {
-      completed: turnoverProgress >= 1,
-      progress: turnoverProgress,
-      daysLeft: daysLeft,
-      daysToComplete: daysToComplete,
-      currentAmount: deposit.amount + totalTurnover,
-      totalTurnover: totalTurnover,
-      dailyReturnRate: dailyReturnRate * 100,
-      completionDate: completionDate,
-      dailyProfits: []
+      daysSinceDeposit,
+      totalTurnover: parseFloat(turnoverProfit.toFixed(2)),
+      daysToTurnover,
+      daysLeft,
+      completionDate,
+      isCompleted: turnoverProfit >= depositAmount, // Obrót jest zakończony, gdy zysk osiągnął wartość wpłaty
+      dailyProfit: parseFloat(dailyProfit.toFixed(2)),
+      dailyProfitForDeposit: parseFloat(dailyProfitForDeposit.toFixed(2)),
+      projectedTotalProfit: parseFloat(depositAmount.toFixed(2)),
+      projectedFutureProfit: parseFloat(projectedFutureProfit.toFixed(2)),
+      turnoverProfit: parseFloat(turnoverProfit.toFixed(2)),
+      turnoverProgressPercent: parseFloat(turnoverProgress.toFixed(1))
     };
   };
 
   // Aktualizuj status obrotu dla wszystkich wpłat
   useEffect(() => {
+    // Ta funkcja będzie wywoływana tylko przy inicjalizacji oraz w interwałach
     const updateHistory = () => {
-      const updatedHistory = history.map(deposit => {
-        const status = calculateTurnoverStatus(deposit);
-        return {
-          ...deposit,
-          turnoverProgress: status.progress,
-          daysLeft: status.daysLeft,
-          turnoverCompleted: status.completed,
-          status: status.completed ? 'completed' : 'active',
-          currentAmount: status.currentAmount,
-          completionDate: status.completionDate
-        };
-      });
-
-      // Porównaj, czy historia faktycznie się zmieniła
-      const hasChanged = JSON.stringify(updatedHistory) !== JSON.stringify(history);
-      if (hasChanged) {
-        setHistory(updatedHistory);
+      // Ograniczamy wywołania console.log
+      const debug = false;
+      
+      if (debug && history.length > 0) {
+        history.forEach(deposit => {
+          calculateTurnoverStatus(deposit);
+        });
       }
     };
 
+    // Wykonaj aktualizację tylko raz przy inicjalizacji
     updateHistory();
-    const interval = setInterval(updateHistory, 3600000);
+    
+    // Ustaw interwał aktualizacji, ale nie wywołuj funkcji, które modyfikują stan
+    const interval = setInterval(updateHistory, 43200000); // 12 godzin
+    
+    // Czyszczenie interwału przy odmontowaniu komponentu
     return () => clearInterval(interval);
-  }, [history.length, dailySignals]);
+  }, []); // Pusta tablica zależności - uruchamiane tylko przy montowaniu komponentu
 
   const handleAddDeposit = (e) => {
     e.preventDefault();
@@ -123,36 +179,13 @@ const InvestmentHistory = ({
       return;
     }
     
-    // Oblicz całkowity kapitał w dniu wpłaty
-    const previousDeposits = history
-      .filter(d => new Date(d.date) < new Date(newDeposit.date))
-      .reduce((sum, d) => sum + d.amount, 0);
-    
-    const totalCapital = previousDeposits + amount;
-    const dailyReturnRate = 0.006 * dailySignals;
-    const dailyProfit = totalCapital * dailyReturnRate;
-    const daysToComplete = Math.ceil(amount / dailyProfit);
-    
     const deposit = {
       id: Date.now(),
       date: newDeposit.date,
-      amount: amount,
-      status: 'active',
-      turnoverRequired: true,
-      turnoverStartDate: new Date(newDeposit.date).toISOString(),
-      dailyProfit: dailyProfit,
-      totalCapital: totalCapital
+      amount: amount // Kwota już w USDT
     };
 
-    const turnoverStatus = calculateTurnoverStatus(deposit);
-    
-    deposit.turnoverProgress = turnoverStatus.progress;
-    deposit.daysLeft = turnoverStatus.daysLeft;
-    deposit.turnoverCompleted = turnoverStatus.completed;
-    deposit.turnoverEndDate = turnoverStatus.completionDate.toISOString();
-    deposit.totalTurnover = turnoverStatus.totalTurnover;
-    deposit.currentAmount = turnoverStatus.currentAmount;
-    
+    // Dodaj depozyt do historii
     const newHistory = [...history, deposit];
     setHistory(newHistory);
     setCurrentBalance(currentBalance + amount);
@@ -167,7 +200,7 @@ const InvestmentHistory = ({
     if (window.confirm(translations[selectedLanguage].confirmDelete)) {
       const updatedHistory = history.filter(entry => entry.id !== id);
       setHistory(updatedHistory);
-      // Zachowujemy aktualne saldo
+      setCurrentBalance(currentBalance - depositToDelete.amount);
     }
   };
 
@@ -185,23 +218,37 @@ const InvestmentHistory = ({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {translations[selectedLanguage].depositAmount} ({selectedCurrency})
+              {translations[selectedLanguage].depositAmount} (USDT)
             </label>
             <div className="relative">
               <input
                 type="number"
                 value={newDeposit.amount}
-                onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
+                onChange={(e) => {
+                  // Zabezpieczenie przed ujemnymi liczbami
+                  const value = e.target.value;
+                  const parsedValue = parseFloat(value);
+                  if (value === '' || !isNaN(parsedValue)) {
+                    setNewDeposit({ ...newDeposit, amount: value });
+                  }
+                }}
+                onBlur={(e) => {
+                  // Dodatkowe zabezpieczenie przy utracie fokusu
+                  const parsedValue = parseFloat(e.target.value);
+                  if (!isNaN(parsedValue) && parsedValue < 0) {
+                    setNewDeposit({ ...newDeposit, amount: Math.abs(parsedValue).toString() });
+                  }
+                }}
+                min="0"
+                step="any"
                 className="w-full p-3 border border-gray-300 rounded-lg shadow-sm pr-16 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
+                style={{ appearance: 'none' }}
               />
               <span className="absolute right-3 top-3 text-gray-500">
-                {selectedCurrency}
+                USDT
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {newDeposit.amount ? `${(parseFloat(newDeposit.amount) / exchangeRates[selectedCurrency]).toFixed(2)} USDT` : '0.00 USDT'}
-            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -260,7 +307,19 @@ const InvestmentHistory = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {history.map((deposit) => {
-              const turnoverStatus = calculateTurnoverStatus(deposit);
+              const turnoverStatus = calculateTurnoverStatus(deposit) || {
+                daysSinceDeposit: 0,
+                totalTurnover: 0,
+                daysToTurnover: 0,
+                daysLeft: 0,
+                completionDate: new Date(),
+                isCompleted: false,
+                additionalDailyProfitFromDeposit: 0,
+                projectedTotalProfit: 0,
+                turnoverProfit: 0,
+                turnoverProgressPercent: 0
+              };
+              
               return (
                 <tr key={deposit.id}>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].date}>
@@ -271,20 +330,25 @@ const InvestmentHistory = ({
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].amount}>
                     <div className="text-sm font-medium text-gray-900 w-full text-right">
                       <div className="font-semibold">{deposit.amount} USDT</div>
-                      <div className="text-xs text-gray-500 mt-1 w-full">
-                        {translations[selectedLanguage].currently}: {turnoverStatus.currentAmount.toFixed(2)} USDT
+                      <div className="text-xs text-blue-500 mt-1 w-full">
+                        <span>{translations[selectedLanguage].turnoverProgress}: {Math.min(100, ((turnoverStatus.turnoverProfit || 0) / deposit.amount * 100)).toFixed(1)}%</span>
                       </div>
                       <div className="text-xs text-gray-500 mt-1 w-full">
-                        {translations[selectedLanguage].totalProfits}: {turnoverStatus.totalTurnover.toFixed(2)} USDT
+                        <span>Dzienny zysk: {(turnoverStatus.dailyProfitForDeposit || 0).toFixed(2)} USDT</span>
+                      </div>
+                      <div className="text-xs text-orange-500 mt-1 w-full">
+                        <span>Pozostało dni: {turnoverStatus.daysLeft} | Przyszły zysk: {(turnoverStatus.projectedFutureProfit || 0).toFixed(2)} USDT</span>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].turnoverStatus}>
                     <div className="w-full text-right">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        turnoverStatus.completed ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        turnoverStatus.turnoverProfit >= deposit.amount ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {turnoverStatus.completed ? translations[selectedLanguage].completed : translations[selectedLanguage].inProgress}
+                        {turnoverStatus.turnoverProfit >= deposit.amount 
+                          ? translations[selectedLanguage].completed 
+                          : `${translations[selectedLanguage].inProgress} (${turnoverStatus.turnoverProgressPercent || 0}%)`}
                       </span>
                     </div>
                   </td>
@@ -293,22 +357,22 @@ const InvestmentHistory = ({
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
                         <div 
                           className="bg-blue-600 h-2.5 rounded-full" 
-                          style={{ width: `${turnoverStatus.progress * 100}%` }}
+                          style={{ width: `${turnoverStatus.turnoverProgressPercent || 0}%` }}
                         ></div>
                       </div>
                       <span className="text-xs text-gray-500 block text-right">
-                        {Math.round(turnoverStatus.progress * 100)}%
+                        {turnoverStatus.turnoverProgressPercent || 0}%
                       </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].daysLeft}>
                     <div className="text-sm text-gray-500 w-full text-right">
-                      {turnoverStatus.daysLeft} {translations[selectedLanguage].days}
+                      {turnoverStatus.daysLeft || 0} {translations[selectedLanguage].days}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].completionDate}>
                     <div className="text-sm text-gray-500 w-full text-right">
-                      {new Date(turnoverStatus.completionDate).toLocaleDateString()}
+                      {turnoverStatus.completionDate ? new Date(turnoverStatus.completionDate).toLocaleDateString() : '-'}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].actions}>
