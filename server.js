@@ -237,17 +237,33 @@ app.post('/api/register', async (req, res) => {
   app.post('/api/login-ios', (req, res) => {
     console.log('Otrzymano żądanie logowania iOS');
     console.log('Content-Type:', req.headers['content-type']);
-    const username = req.body.username;
-    const password = req.body.password;
-  
+    console.log('User-Agent:', req.headers['user-agent']);
+    
+    let username, password;
+    
+    // Sprawdzamy typ zawartości i odpowiednio pobieramy dane
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      username = req.body.username;
+      password = req.body.password;
+    } else if (req.headers['content-type']?.includes('application/json')) {
+      username = req.body.username;
+      password = req.body.password;
+    } else {
+      console.error('Nieobsługiwany typ zawartości:', req.headers['content-type']);
+      return res.status(400).json({ 
+        message: 'Nieobsługiwany typ zawartości. Wymagane multipart/form-data lub application/json' 
+      });
+    }
+    
     // Sprawdzamy, czy dane są poprawne
     if (!username || !password) {
+      console.error('Brakujące dane logowania');
       return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
     }
-  
+    
     // Sanityzacja danych wejściowych
     const sanitizedUsername = username.trim();
-  
+    
     // Logika logowania identyczna jak w głównym endpoincie
     db.get('SELECT * FROM users WHERE username = ?', [sanitizedUsername], async (err, user) => {
       if (err) {
@@ -256,16 +272,19 @@ app.post('/api/register', async (req, res) => {
       }
       
       if (!user) {
+        console.error('Nie znaleziono użytkownika:', sanitizedUsername);
         return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
       }
       
       try {
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
+          console.error('Nieprawidłowe hasło dla użytkownika:', sanitizedUsername);
           return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
         }
         
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+        console.log('Pomyślne logowanie dla użytkownika:', sanitizedUsername);
         res.json({ token, userId: user.id, username: user.username });
       } catch (error) {
         console.error('Błąd podczas weryfikacji hasła:', error);

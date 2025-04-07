@@ -183,36 +183,45 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
               
               const formResponse = await fetch(apiUrl, {
                 method: 'POST',
+                headers: {
+                  'Accept': 'application/json',
+                },
                 body: formData
               });
               
               if (!formResponse.ok) {
-                throw new Error(`Błąd HTTP: ${formResponse.status}`);
+                const errorText = await formResponse.text();
+                throw new Error(`Błąd HTTP: ${formResponse.status} - ${errorText}`);
               }
               
               response = await formResponse.json();
             } catch (formError) {
               console.error('Próba FormData nie powiodła się:', formError);
               
-              // Próba 2: Użycie zwykłego fetch z JSON, ale z innymi nagłówkami
-              const fetchResponse = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                  username: username.trim(),
-                  password
-                }),
-              });
-              
-              if (!fetchResponse.ok) {
-                const errorText = await fetchResponse.text();
-                throw new Error(errorText || `Błąd HTTP: ${fetchResponse.status}`);
+              // Próba 2: Użycie zwykłego fetch z JSON
+              try {
+                const fetchResponse = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    username: username.trim(),
+                    password
+                  }),
+                });
+                
+                if (!fetchResponse.ok) {
+                  const errorText = await fetchResponse.text();
+                  throw new Error(`Błąd HTTP: ${fetchResponse.status} - ${errorText}`);
+                }
+                
+                response = await fetchResponse.json();
+              } catch (fetchError) {
+                console.error('Próba JSON nie powiodła się:', fetchError);
+                throw new Error('Wystąpił błąd podczas logowania. Spróbuj ponownie później.');
               }
-              
-              response = await fetchResponse.json();
             }
           }
         } else {

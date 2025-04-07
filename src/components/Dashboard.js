@@ -139,63 +139,9 @@ const Dashboard = ({
         </div>
       </div>
       
-      {/* Informacje o stanie konta i wybór okresu projekcji */}
+      {/* Wybór okresu projekcji */}
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <h2 className="text-xl font-bold mr-4">{translations[selectedLanguage].profitForecast}</h2>
-          <div className="flex items-center bg-blue-50 p-2 rounded-lg">
-            <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
-            {isEditingBalance ? (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-24 p-1 text-gray-800 border rounded"
-                  step="0.01"
-                  min="0"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    const newBalance = parseFloat(editValue);
-                    if (!isNaN(newBalance) && newBalance >= 0) {
-                      updateBalance(newBalance);
-                      setIsEditingBalance(false);
-                      setEditValue('');
-                    }
-                  }}
-                  className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  ✓
-                </button>
-                <button
-                  onClick={() => {
-                    setIsEditingBalance(false);
-                    setEditValue('');
-                  }}
-                  className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <span className="font-semibold mr-2">{currentBalance.toFixed(2)} USDT</span>
-                <button
-                  onClick={() => {
-                    setEditValue(currentBalance.toString());
-                    setIsEditingBalance(true);
-                  }}
-                  className="p-1 hover:bg-blue-100 rounded-full transition-colors"
-                  title={translations[selectedLanguage].editBalance}
-                >
-                  <Pencil className="text-blue-600" size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <h2 className="text-xl font-bold">{translations[selectedLanguage].profitForecast}</h2>
         <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
           <Calendar className="text-blue-600" size={20} />
           <select

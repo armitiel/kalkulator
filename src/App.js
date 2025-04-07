@@ -20,7 +20,15 @@ const PolishFlag = () => (
 );
 
 const UKFlag = () => (
-  <img src="/uk flag.svg" alt="UK flag" className="w-8 h-8 object-cover" />
+  <svg viewBox="0 0 16 16" className="w-full h-full">
+    <g fillRule="evenodd">
+      <path fill="#012169" d="M0 0h16v16H0z"/>
+      <path fill="#FFF" d="M0 0l16 16M16 0L0 16"/>
+      <path fill="#C8102E" d="M0 0l6 6L0 12M16 0l-6 6l6 6"/>
+      <path fill="#FFF" d="M8 0v16M0 8h16"/>
+      <path fill="#C8102E" d="M8 0v6M0 8h6M10 8h6M8 10v6"/>
+    </g>
+  </svg>
 );
 
 const App = () => {
@@ -757,13 +765,6 @@ const App = () => {
             >
               <TrendingUp size={20} />
               <span>{translations[selectedLanguage].dashboard}</span>
-            </button>
-            <button 
-              className={activeTab === 'calculator' ? 'active' : ''}
-              onClick={() => setActiveTab('calculator')}
-            >
-              <DollarSign size={20} />
-              <span>{translations[selectedLanguage].profitForecast}</span>
             </button>
             <button 
               className={activeTab === 'analytics' ? 'active' : ''}
