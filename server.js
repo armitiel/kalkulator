@@ -67,10 +67,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Rozszerzona konfiguracja CORS dla lepszej obsługi urządzeń iOS
 app.use(cors({
-  origin: '*', // W produkcji należy określić dozwolone domeny
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Dodajemy obsługę błędów parsowania JSON
@@ -84,6 +86,18 @@ app.use(bodyParser.json({
     }
   }
 }));
+
+// Middleware do obsługi błędów
+app.use((err, req, res, next) => {
+  console.error('Błąd serwera:', err);
+  res.status(500).json({ 
+    error: {
+      code: '500',
+      message: 'Wystąpił błąd serwera',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    }
+  });
+});
 
 // Inicjalizacja bazy danych
 const db = new sqlite3.Database('./database.sqlite', (err) => {
@@ -234,63 +248,75 @@ app.post('/api/register', async (req, res) => {
   }
   
   // Alternatywny endpoint logowania specjalnie dla urządzeń iOS
-  app.post('/api/login-ios', (req, res) => {
-    console.log('Otrzymano żądanie logowania iOS');
-    console.log('Content-Type:', req.headers['content-type']);
-    console.log('User-Agent:', req.headers['user-agent']);
-    
-    let username, password;
-    
-    // Sprawdzamy typ zawartości i odpowiednio pobieramy dane
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      username = req.body.username;
-      password = req.body.password;
-    } else if (req.headers['content-type']?.includes('application/json')) {
-      username = req.body.username;
-      password = req.body.password;
-    } else {
-      console.error('Nieobsługiwany typ zawartości:', req.headers['content-type']);
-      return res.status(400).json({ 
-        message: 'Nieobsługiwany typ zawartości. Wymagane multipart/form-data lub application/json' 
-      });
-    }
-    
-    // Sprawdzamy, czy dane są poprawne
-    if (!username || !password) {
-      console.error('Brakujące dane logowania');
-      return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
-    }
-    
-    // Sanityzacja danych wejściowych
-    const sanitizedUsername = username.trim();
-    
-    // Logika logowania identyczna jak w głównym endpoincie
-    db.get('SELECT * FROM users WHERE username = ?', [sanitizedUsername], async (err, user) => {
-      if (err) {
-        console.error('Błąd bazy danych podczas logowania iOS:', err);
-        return res.status(500).json({ message: 'Błąd podczas logowania' });
+  app.post('/api/login-ios', async (req, res) => {
+    try {
+      console.log('Otrzymano żądanie logowania iOS');
+      console.log('Content-Type:', req.headers['content-type']);
+      console.log('User-Agent:', req.headers['user-agent']);
+      
+      let username, password;
+      
+      // Sprawdzamy typ zawartości i odpowiednio pobieramy dane
+      if (req.headers['content-type']?.includes('multipart/form-data')) {
+        username = req.body.username;
+        password = req.body.password;
+      } else if (req.headers['content-type']?.includes('application/json')) {
+        username = req.body.username;
+        password = req.body.password;
+      } else {
+        console.error('Nieobsługiwany typ zawartości:', req.headers['content-type']);
+        return res.status(400).json({ 
+          message: 'Nieobsługiwany typ zawartości. Wymagane multipart/form-data lub application/json' 
+        });
       }
+      
+      // Sprawdzamy, czy dane są poprawne
+      if (!username || !password) {
+        console.error('Brakujące dane logowania');
+        return res.status(400).json({ message: 'Nazwa użytkownika i hasło są wymagane' });
+      }
+      
+      // Sanityzacja danych wejściowych
+      const sanitizedUsername = username.trim();
+      
+      // Logika logowania identyczna jak w głównym endpoincie
+      const user = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE username = ?', [sanitizedUsername], (err, user) => {
+          if (err) reject(err);
+          else resolve(user);
+        });
+      });
       
       if (!user) {
         console.error('Nie znaleziono użytkownika:', sanitizedUsername);
         return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
       }
       
-      try {
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-          console.error('Nieprawidłowe hasło dla użytkownika:', sanitizedUsername);
-          return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
-        }
-        
-        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        console.log('Pomyślne logowanie dla użytkownika:', sanitizedUsername);
-        res.json({ token, userId: user.id, username: user.username });
-      } catch (error) {
-        console.error('Błąd podczas weryfikacji hasła:', error);
-        return res.status(500).json({ message: 'Błąd podczas logowania' });
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        console.error('Nieprawidłowe hasło dla użytkownika:', sanitizedUsername);
+        return res.status(401).json({ message: 'Nieprawidłowa nazwa użytkownika lub hasło' });
       }
-    });
+      
+      const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+      console.log('Pomyślne logowanie dla użytkownika:', sanitizedUsername);
+      
+      res.json({ 
+        token, 
+        userId: user.id, 
+        username: user.username,
+        success: true
+      });
+    } catch (error) {
+      console.error('Błąd podczas logowania iOS:', error);
+      res.status(500).json({ 
+        error: {
+          code: '500',
+          message: 'Wystąpił błąd podczas logowania',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        }
+      });
+    }
   });
 });
 // Logowanie użytkownika

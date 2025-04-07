@@ -186,11 +186,13 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
                 headers: {
                   'Accept': 'application/json',
                 },
+                credentials: 'include',
                 body: formData
               });
               
               if (!formResponse.ok) {
                 const errorText = await formResponse.text();
+                console.error('Błąd FormData:', errorText);
                 throw new Error(`Błąd HTTP: ${formResponse.status} - ${errorText}`);
               }
               
@@ -206,6 +208,7 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                   },
+                  credentials: 'include',
                   body: JSON.stringify({
                     username: username.trim(),
                     password
@@ -214,6 +217,7 @@ const Auth = ({ onLogin, defaultLanguage = 'pl' }) => {
                 
                 if (!fetchResponse.ok) {
                   const errorText = await fetchResponse.text();
+                  console.error('Błąd JSON:', errorText);
                   throw new Error(`Błąd HTTP: ${fetchResponse.status} - ${errorText}`);
                 }
                 
