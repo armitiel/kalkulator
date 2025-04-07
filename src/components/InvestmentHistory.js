@@ -98,9 +98,12 @@ export const InvestmentHistory = ({
     
     if (dailyProfit <= 0) {
       // Jeśli nie ma zysku, użyj standardowego wzoru
+      // Jeśli nie ma zysku, użyj standardowego wzoru
       daysToTurnover = Math.ceil(1 / totalDailyRate);
     } else {
-      daysToTurnover = Math.ceil(depositAmount / dailyProfit);
+      // Wzór na czas potrzebny do podwojenia kapitału przy wzroście złożonym:
+      // t = log(2) / log(1 + r), gdzie r to dzienna stopa zwrotu
+      daysToTurnover = Math.ceil(Math.log(2) / Math.log(1 + totalDailyRate));
     }
     
     // Oblicz udział tej wpłaty w całkowitym kapitale (z zabezpieczeniem przed dzieleniem przez zero)
@@ -109,8 +112,10 @@ export const InvestmentHistory = ({
     // Oblicz dzienny zysk dla tej konkretnej wpłaty
     const dailyProfitForDeposit = dailyProfit * depositShare;
     
-    // Oblicz całkowity zysk z tej wpłaty na dzisiaj
-    const totalProfit = dailyProfitForDeposit * daysSinceDeposit;
+    // Oblicz całkowity zysk z tej wpłaty na dzisiaj (wzrost złożony)
+    // Wzór na wzrost złożony: FV = P * (1 + r)^t - P
+    // Gdzie: FV - przyszła wartość, P - kapitał początkowy, r - stopa zwrotu, t - liczba okresów
+    const totalProfit = depositAmount * (Math.pow(1 + totalDailyRate, daysSinceDeposit) - 1);
     
     // Zysk z obrotu to całkowity zysk bez ograniczenia do kwoty wpłaty
     const turnoverProfit = totalProfit;
@@ -118,8 +123,9 @@ export const InvestmentHistory = ({
     // Pozostałe dni do pełnego obrotu
     const daysLeft = Math.max(0, daysToTurnover - daysSinceDeposit);
     
-    // Przewidywany przyszły zysk (pozostałe dni * dzienny zysk z wpłaty)
-    const projectedFutureProfit = daysLeft * dailyProfitForDeposit;
+    // Przewidywany przyszły zysk (wzrost złożony)
+    // Używamy tego samego wzoru na wzrost złożony, ale dla pozostałych dni
+    const projectedFutureProfit = depositAmount * (Math.pow(1 + totalDailyRate, daysLeft) - 1);
     
     // Data zakończenia obrotu
     const completionDate = new Date(depositDate);

@@ -186,7 +186,8 @@ const WithdrawalPlanner = ({
     }
 
     const dailyReturn = 0.006 * dailySignals;
-    const monthlyReturn = dailyReturn * 30;
+    // Wzrost złożony miesięczny: (1 + dailyReturn)^30 - 1
+    const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1;
     
     if (withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth) {
       updateWithdrawalPlan({
