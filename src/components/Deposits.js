@@ -21,23 +21,15 @@ const Deposits = ({ deposits, onAddDeposit, onRemoveDeposit, currentBalance, dai
     // Stała stopa zwrotu na sygnał (0,6%)
     const ratePerSignal = 0.006;
     
-    // Całkowity dzienny procent zysku
+    // Całkowity dzienny procent zysku (0.6% * liczba sygnałów)
     const totalDailyRate = ratePerSignal * dailySignals;
     
-    // Oblicz dzienny zysk z całego kapitału
-    const dailyProfit = currentBalance * totalDailyRate;
-    
-    // Liczba dni potrzebna do wygenerowania kwoty równej wpłacie
-    let daysToTurnover;
-    
-    if (dailyProfit <= 0) {
-      // Jeśli nie ma zysku, użyj standardowego wzoru
-      daysToTurnover = Math.ceil(1 / totalDailyRate);
-    } else {
-      // Wzór na czas potrzebny do podwojenia kapitału przy wzroście złożonym:
-      // t = log(2) / log(1 + r), gdzie r to dzienna stopa zwrotu
-      daysToTurnover = Math.ceil(Math.log(2) / Math.log(1 + totalDailyRate));
-    }
+    // Wzór na liczbę dni z uwzględnieniem procentu złożonego:
+    // n = log(1 + (deposit/currentBalance)) / log(1 + totalDailyRate)
+    const daysToTurnover = Math.ceil(
+      Math.log(1 + (deposit.amount/currentBalance)) / 
+      Math.log(1 + totalDailyRate)
+    );
     
     return daysToTurnover;
   };

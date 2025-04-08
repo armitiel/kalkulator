@@ -36,11 +36,24 @@ export const InvestmentHistory = ({
   // Wczytaj historię wpłat z localStorage przy inicjalizacji
   useEffect(() => {
     const savedHistory = localStorage.getItem('investmentHistory');
+    const backupHistory = localStorage.getItem('investmentHistoryBackup');
+    
     if (savedHistory) {
       try {
         const parsedHistory = JSON.parse(savedHistory);
         
-        // Sprawdzamy, czy historia się faktycznie zmieniła, aby uniknąć nieskończonej pętli
+        // Jeśli backup istnieje, porównaj z aktualną historią
+        if (backupHistory) {
+          const parsedBackup = JSON.parse(backupHistory);
+          if (JSON.stringify(parsedHistory) !== JSON.stringify(parsedBackup)) {
+            // Jeśli historie się różnią, użyj tej z backupu
+            setHistory(parsedBackup);
+            localStorage.setItem('investmentHistory', JSON.stringify(parsedBackup));
+            return;
+          }
+        }
+        
+        // Sprawdzamy, czy historia się faktycznie zmieniła
         const currentHistoryStr = JSON.stringify(history);
         const savedHistoryStr = JSON.stringify(parsedHistory);
         
@@ -53,15 +66,27 @@ export const InvestmentHistory = ({
         }
       } catch (error) {
         console.error('Błąd podczas parsowania historii z localStorage:', error);
+        // W przypadku błędu, spróbuj użyć backupu
+        if (backupHistory) {
+          try {
+            const parsedBackup = JSON.parse(backupHistory);
+            setHistory(parsedBackup);
+            localStorage.setItem('investmentHistory', JSON.stringify(parsedBackup));
+          } catch (backupError) {
+            console.error('Błąd podczas parsowania backupu:', backupError);
+          }
+        }
       }
     }
   }, []);
 
   // Zapisz historię wpłat do localStorage przy każdej zmianie
   useEffect(() => {
-    // Zapobiegamy zapisowi przy pierwszym renderowaniu, kiedy historia może być pusta
     if (history && history.length > 0) {
-      localStorage.setItem('investmentHistory', JSON.stringify(history));
+      const historyStr = JSON.stringify(history);
+      localStorage.setItem('investmentHistory', historyStr);
+      // Twórz kopię zapasową
+      localStorage.setItem('investmentHistoryBackup', historyStr);
     }
   }, [history]);
 
@@ -78,103 +103,68 @@ export const InvestmentHistory = ({
     
     const depositDate = new Date(deposit.date);
     const currentDate = new Date();
-    
-    // Dni od złożenia depozytu
-    const daysSinceDeposit = Math.max(1, Math.floor((currentDate - depositDate) / (1000 * 60 * 60 * 24)));
-    
-    // Parametry do obliczeń
     const depositAmount = parseFloat(deposit.amount);
-    const effectiveDailySignals = dailySignals || 3; // Domyślnie 3 sygnały dziennie
-    const ratePerSignal = 0.006; // 0,6% na sygnał
+    const ratePerSignal = 0.006;
+    const totalDailyRate = ratePerSignal * dailySignals;
     
-    // Całkowity dzienny procent zysku
-    const totalDailyRate = ratePerSignal * effectiveDailySignals;
+    // Oblicz dokładny czas od wpłaty w godzinach
+    const hoursSinceDeposit = Math.max(1, (currentDate - depositDate) / (1000 * 60 * 60));
+    const daysSinceDeposit = hoursSinceDeposit / 24;
     
-    // Oblicz dzienny zysk z całego kapitału
-    const dailyProfit = balance * totalDailyRate;
+    // Oblicz dni potrzebne do obrotu z uwzględnieniem wzrostu złożonego
+    const daysToTurnover = Math.ceil(
+      Math.log(1 + (depositAmount/currentBalance)) / 
+      Math.log(1 + totalDailyRate)
+    );
+
+    // Oblicz dokładny czas do końca obrotu
+    const hoursToTurnover = daysToTurnover * 24;
+    const remainingHours = Math.max(0, hoursToTurnover - hoursSinceDeposit);
+    const remainingDays = Math.floor(remainingHours / 24);
+    const remainingHoursInDay = Math.floor(remainingHours % 24);
+
+    // 1. Stan kapitału bez wpłaty po okresie obrotu
+    const capitalWithoutDeposit = (currentBalance - depositAmount) * Math.pow(1 + totalDailyRate, daysToTurnover);
     
-    // Liczba dni potrzebna do wygenerowania kwoty równej wpłacie
-    let daysToTurnover;
+    // 2. Stan kapitału z wpłatą po okresie obrotu
+    const capitalWithDeposit = currentBalance * Math.pow(1 + totalDailyRate, daysToTurnover);
     
-    if (dailyProfit <= 0) {
-      // Jeśli nie ma zysku, użyj standardowego wzoru
-      // Jeśli nie ma zysku, użyj standardowego wzoru
-      daysToTurnover = Math.ceil(1 / totalDailyRate);
-    } else {
-      // Wzór na czas potrzebny do podwojenia kapitału przy wzroście złożonym:
-      // t = log(2) / log(1 + r), gdzie r to dzienna stopa zwrotu
-      daysToTurnover = Math.ceil(Math.log(2) / Math.log(1 + totalDailyRate));
-    }
-    
-    // Oblicz udział tej wpłaty w całkowitym kapitale (z zabezpieczeniem przed dzieleniem przez zero)
-    const depositShare = balance > 0 ? depositAmount / balance : 1;
-    
-    // Oblicz dzienny zysk dla tej konkretnej wpłaty
-    const dailyProfitForDeposit = dailyProfit * depositShare;
-    
-    // Oblicz całkowity zysk z tej wpłaty na dzisiaj (wzrost złożony)
-    // Wzór na wzrost złożony: FV = P * (1 + r)^t - P
-    // Gdzie: FV - przyszła wartość, P - kapitał początkowy, r - stopa zwrotu, t - liczba okresów
-    const totalProfit = depositAmount * (Math.pow(1 + totalDailyRate, daysSinceDeposit) - 1);
-    
-    // Zysk z obrotu to całkowity zysk bez ograniczenia do kwoty wpłaty
-    const turnoverProfit = totalProfit;
-    
-    // Pozostałe dni do pełnego obrotu
-    const daysLeft = Math.max(0, daysToTurnover - daysSinceDeposit);
-    
-    // Przewidywany przyszły zysk (wzrost złożony)
-    // Używamy tego samego wzoru na wzrost złożony, ale dla pozostałych dni
-    const projectedFutureProfit = depositAmount * (Math.pow(1 + totalDailyRate, daysLeft) - 1);
-    
-    // Data zakończenia obrotu
+    // 3. Rzeczywisty zysk z wpłaty
+    const actualDepositProfit = (capitalWithDeposit - capitalWithoutDeposit) - depositAmount;
+
+    // Oblicz postęp obrotu z dokładnością do godzin
+    const turnoverProgress = Math.min(100, (hoursSinceDeposit / hoursToTurnover) * 100);
     const completionDate = new Date(depositDate);
-    completionDate.setDate(completionDate.getDate() + daysToTurnover);
-    
-    // Procent postępu obrotu
-    const turnoverProgress = Math.min(100, (daysSinceDeposit / daysToTurnover) * 100);
-    
-    console.log(`Wpłata: ${depositAmount} USDT, Dzienny zysk całkowity: ${dailyProfit.toFixed(2)} USDT, Dzienny zysk wpłaty: ${dailyProfitForDeposit.toFixed(2)} USDT, Dni do obrotu: ${daysToTurnover}, Postęp: ${turnoverProgress.toFixed(1)}%, Pozostało dni: ${daysLeft}, Przyszły zysk: ${projectedFutureProfit.toFixed(2)} USDT`);
-    
+    completionDate.setDate(depositDate.getDate() + daysToTurnover);
+
     return {
-      daysSinceDeposit,
-      totalTurnover: parseFloat(turnoverProfit.toFixed(2)),
+      daysSinceDeposit: Math.floor(daysSinceDeposit),
       daysToTurnover,
-      daysLeft,
+      remainingDays,
+      remainingHoursInDay,
       completionDate,
-      isCompleted: turnoverProfit >= depositAmount, // Obrót jest zakończony, gdy zysk osiągnął wartość wpłaty
-      dailyProfit: parseFloat(dailyProfit.toFixed(2)),
-      dailyProfitForDeposit: parseFloat(dailyProfitForDeposit.toFixed(2)),
-      projectedTotalProfit: parseFloat(depositAmount.toFixed(2)),
-      projectedFutureProfit: parseFloat(projectedFutureProfit.toFixed(2)),
-      turnoverProfit: parseFloat(turnoverProfit.toFixed(2)),
+      depositAmount,
+      capitalWithoutDeposit: parseFloat(capitalWithoutDeposit.toFixed(2)),
+      capitalWithDeposit: parseFloat(capitalWithDeposit.toFixed(2)),
+      actualDepositProfit: parseFloat(actualDepositProfit.toFixed(2)),
       turnoverProgressPercent: parseFloat(turnoverProgress.toFixed(1))
     };
   };
 
   // Aktualizuj status obrotu dla wszystkich wpłat
   useEffect(() => {
-    // Ta funkcja będzie wywoływana tylko przy inicjalizacji oraz w interwałach
     const updateHistory = () => {
-      // Ograniczamy wywołania console.log
-      const debug = false;
-      
-      if (debug && history.length > 0) {
+      if (history.length > 0) {
         history.forEach(deposit => {
           calculateTurnoverStatus(deposit);
         });
       }
     };
 
-    // Wykonaj aktualizację tylko raz przy inicjalizacji
     updateHistory();
-    
-    // Ustaw interwał aktualizacji, ale nie wywołuj funkcji, które modyfikują stan
     const interval = setInterval(updateHistory, 43200000); // 12 godzin
-    
-    // Czyszczenie interwału przy odmontowaniu komponentu
     return () => clearInterval(interval);
-  }, []); // Pusta tablica zależności - uruchamiane tylko przy montowaniu komponentu
+  }, [history, dailySignals, currentBalance]); // Dodajemy zależności
 
   const handleAddDeposit = (e) => {
     e.preventDefault();
@@ -333,17 +323,28 @@ export const InvestmentHistory = ({
                       {deposit.date}
                     </div>
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].amount}>
-                    <div className="text-sm font-medium text-gray-900 w-full text-right">
-                      <div className="font-semibold">{deposit.amount} USDT</div>
-                      <div className="text-xs text-blue-500 mt-1 w-full">
-                        <span>{translations[selectedLanguage].turnoverProgress}: {Math.min(100, ((turnoverStatus.turnoverProfit || 0) / deposit.amount * 100)).toFixed(1)}%</span>
+                  <td className="px-4 py-3 whitespace-normal" data-label={translations[selectedLanguage].amount}>
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 w-full text-right">
+                          <div className="text-base font-bold mb-2">{deposit.amount} USDT</div>
+                          <div className="text-sm font-medium text-green-600 mb-2">
+                            <span>{translations[selectedLanguage].expectedDepositProfit}:</span>
+                            <div className="font-bold">{turnoverStatus.actualDepositProfit} USDT</div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1 w-full">
-                        <span>Dzienny zysk: {(turnoverStatus.dailyProfitForDeposit || 0).toFixed(2)} USDT</span>
-                      </div>
-                      <div className="text-xs text-orange-500 mt-1 w-full">
-                        <span>Pozostało dni: {turnoverStatus.daysLeft} | Przyszły zysk: {(turnoverStatus.projectedFutureProfit || 0).toFixed(2)} USDT</span>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 w-full text-right">
+                          <div className="text-sm font-medium text-gray-700 mb-2">
+                            <span>{translations[selectedLanguage].finalBalance}:</span>
+                            <div className="font-bold">{turnoverStatus.capitalWithDeposit} USDT</div>
+                          </div>
+                          <div className="text-sm font-medium text-gray-600">
+                            <span>{translations[selectedLanguage].balanceWithoutDeposit}:</span>
+                            <div className="font-bold">{turnoverStatus.capitalWithoutDeposit} USDT</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -373,7 +374,7 @@ export const InvestmentHistory = ({
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].daysLeft}>
                     <div className="text-sm text-gray-500 w-full text-right">
-                      {turnoverStatus.daysLeft || 0} {translations[selectedLanguage].days}
+                      {turnoverStatus.remainingDays} {translations[selectedLanguage].days} {turnoverStatus.remainingHoursInDay} {translations[selectedLanguage].hours}
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" data-label={translations[selectedLanguage].completionDate}>
