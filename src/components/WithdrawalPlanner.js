@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 
-const WithdrawalPlanner = ({ 
+export default function WithdrawalPlanner({ 
   currentBalance, 
   dailySignals, 
   selectedCurrency, 
@@ -12,13 +12,16 @@ const WithdrawalPlanner = ({
   setWithdrawalPlan,
   translations,
   selectedLanguage
-}) => {
+}) {
   // Funkcje pomocnicze do aktualizacji stanu
   const updateWithdrawalPlan = (updates) => {
-    setWithdrawalPlan(prev => ({
-      ...prev,
+    const newPlan = {
+      ...withdrawalPlan,
       ...updates
-    }));
+    };
+    setWithdrawalPlan(newPlan);
+    // Automatyczne zapisywanie planu
+    localStorage.setItem('withdrawalPlan', JSON.stringify(newPlan));
   };
 
   // Funkcja do generowania nazw miesięcy
@@ -447,7 +450,20 @@ const WithdrawalPlanner = ({
               position="bottom"
               tick={{ fontSize: 12 }}
             />
-            <YAxis width={40} />
+            <YAxis 
+              tickFormatter={(value) => {
+                if (value >= 1000) {
+                  return `${(value / 1000).toFixed(1)}K`;
+                }
+                return value.toFixed(0);
+              }}
+              interval={0}
+              width={40}
+              domain={['auto', 'auto']}
+              scale="linear"
+              allowDataOverflow={false}
+              tickCount={5}
+            />
             <Tooltip formatter={(value) => value.toFixed(2)} />
             <Legend verticalAlign="top" />
             <Line 
@@ -516,6 +532,4 @@ const WithdrawalPlanner = ({
       )}
     </div>
   );
-};
-
-export default WithdrawalPlanner; 
+} 
