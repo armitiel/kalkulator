@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { DollarSign, Calendar, AlertTriangle, RotateCcw } from 'lucide-react';
 
 export default function WithdrawalPlanner({ 
   currentBalance, 
@@ -20,11 +20,16 @@ export default function WithdrawalPlanner({
       ...updates
     };
     setWithdrawalPlan(newPlan);
-    // Automatyczne zapisywanie planu
-    localStorage.setItem('withdrawalPlan', JSON.stringify(newPlan));
+    
+    // Zapisz do localStorage tylko potrzebne dane, bez projectionData
+    const planToSave = {
+      ...newPlan,
+      projectionData: [] // Nie zapisujemy danych projekcji
+    };
+    localStorage.setItem('withdrawalPlan', JSON.stringify(planToSave));
   };
 
-  // Funkcja do generowania nazw miesięcy
+  // Funkcja do generowania nazw miesięcy z rokiem
   const getMonthName = (monthsAhead) => {
     const months = {
       pl: ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
@@ -32,8 +37,11 @@ export default function WithdrawalPlanner({
       en: ['January', 'February', 'March', 'April', 'May', 'June',
            'July', 'August', 'September', 'October', 'November', 'December']
     };
-    const currentMonth = new Date().getMonth();
-    return months[selectedLanguage][(currentMonth + monthsAhead) % 12];
+    const currentDate = new Date();
+    const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + monthsAhead, 1);
+    const monthName = months[selectedLanguage][targetDate.getMonth()];
+    const year = targetDate.getFullYear();
+    return `${monthName} ${year}`;
   };
 
   // Oblicz minimalną możliwą wypłatę (20 000 PLN miesięcznie)
@@ -141,41 +149,91 @@ export default function WithdrawalPlanner({
     };
   };
 
-  // Oblicz możliwy miesiąc rozpoczęcia wypłat
+  // Dodaj funkcję resetowania
+  const handleReset = () => {
+    updateWithdrawalPlan({
+      monthlyWithdrawal: 0,
+      inputValue: '',
+      startMonth: 0,
+      projectionMonths: 12,
+      projectionData: [],
+      error: '',
+      withdrawalFee: { rate: 0.05, amount: 0 },
+      possibleStartMonth: 0
+    });
+  };
+
+  // Zmodyfikuj funkcję calculatePossibleStartMonth
   const calculatePossibleStartMonth = (amount) => {
-    if (amount <= 0) return 0;
+    if (amount <= 0) return { month: 0, year: new Date().getFullYear() };
 
     const dailyReturn = 0.006 * dailySignals;
-    const monthlyReturn = dailyReturn * 30;
+    const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1;
     let capital = currentBalance;
     let month = 0;
+    const startDate = new Date();
 
     // Sprawdź aktualny miesiąc
     const currentMonthlyGrowth = capital * monthlyReturn;
-    if (currentMonthlyGrowth >= amount) return 0;
+    if (currentMonthlyGrowth >= amount) return { month: 0, year: startDate.getFullYear() };
 
-    // Symuluj wzrost kapitału
-    while (month < 12) {
+    // Symuluj wzrost kapitału przez 5 lat (60 miesięcy)
+    while (month < 60) {
       month++;
-      capital += capital * monthlyReturn;
+      capital = capital * (1 + monthlyReturn);
       const possibleWithdrawal = capital * monthlyReturn;
       
       if (possibleWithdrawal >= amount) {
-        return month;
+        const targetDate = new Date(startDate.getFullYear(), startDate.getMonth() + month, 1);
+        return {
+          month: month,
+          year: targetDate.getFullYear(),
+          totalMonths: month
+        };
       }
     }
 
-    return 12; // Jeśli nie jest możliwe w ciągu roku
+    return { month: -1, year: startDate.getFullYear() + 5 };
   };
 
   // Aktualizuj możliwy miesiąc przy zmianie kwoty
   useEffect(() => {
-    const possibleMonth = calculatePossibleStartMonth(withdrawalPlan.monthlyWithdrawal);
+    const possibleDate = calculatePossibleStartMonth(withdrawalPlan.monthlyWithdrawal);
     
-    updateWithdrawalPlan({
-      possibleStartMonth: possibleMonth,
-      startMonth: withdrawalPlan.startMonth < possibleMonth ? possibleMonth : withdrawalPlan.startMonth
-    });
+    if (possibleDate.month === -1) {
+      updateWithdrawalPlan({
+        possibleStartMonth: possibleDate.month,
+        error: translations[selectedLanguage].withdrawalNotPossible
+      });
+      
+      // Ustaw miesiąc początkowy na pierwszy miesiąc, jeśli obecny jest niedozwolony
+      if (withdrawalPlan.startMonth === 0) {
+        updateWithdrawalPlan({
+          startMonth: 1
+        });
+      }
+    } else if (possibleDate.month > 0) {
+      const monthText = getMonthName(possibleDate.month);
+      const monthsText = translations[selectedLanguage].months[possibleDate.totalMonths > 4 ? 5 : possibleDate.totalMonths];
+      const errorMessage = `${translations[selectedLanguage].withdrawalPossibleFrom}: ${monthText} (${possibleDate.totalMonths} ${monthsText})`;
+      
+      updateWithdrawalPlan({
+        possibleStartMonth: possibleDate.month,
+        error: errorMessage
+      });
+      
+      // Ustaw miesiąc początkowy na możliwy miesiąc, jeśli obecny jest niedozwolony
+      if (withdrawalPlan.startMonth < possibleDate.month) {
+        updateWithdrawalPlan({
+          startMonth: possibleDate.month
+        });
+      }
+    } else {
+      updateWithdrawalPlan({
+        possibleStartMonth: possibleDate.month,
+        error: ''
+      });
+    }
   }, [withdrawalPlan.monthlyWithdrawal, currentBalance, dailySignals]);
 
   // Oblicz projekcję
@@ -192,7 +250,7 @@ export default function WithdrawalPlanner({
     // Wzrost złożony miesięczny: (1 + dailyReturn)^30 - 1
     const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1;
     
-    if (withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth) {
+    if (withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth && withdrawalPlan.possibleStartMonth !== -1) {
       updateWithdrawalPlan({
         projectionData: [],
         error: `Wypłata ${withdrawalPlan.monthlyWithdrawal.toFixed(2)} USDT będzie możliwa dopiero od ${getMonthName(withdrawalPlan.possibleStartMonth)}`
@@ -204,6 +262,8 @@ export default function WithdrawalPlanner({
     let capital = currentBalance;
     let baseCapital = currentBalance;
     let accumulatedGrowth = 0;
+    let capitalDeclineMonth = null;
+    let previousCapital = capital;
 
     // Dodaj punkt początkowy
     data.push({
@@ -212,7 +272,8 @@ export default function WithdrawalPlanner({
       withdrawal: 0,
       growth: 0,
       fee: 0,
-      warning: ''
+      warning: '',
+      planned: 0
     });
 
     // Oblicz dla każdego miesiąca
@@ -222,7 +283,8 @@ export default function WithdrawalPlanner({
       
       const turnoverStatus = calculateTotalTurnoverStatus(monthDate);
       const monthlyGrowth = capital * monthlyReturn;
-      let actualWithdrawal = i >= withdrawalPlan.startMonth ? withdrawalPlan.monthlyWithdrawal : 0;
+      const plannedWithdrawal = i >= withdrawalPlan.startMonth ? withdrawalPlan.monthlyWithdrawal : 0;
+      let actualWithdrawal = plannedWithdrawal;
       let warning = '';
       let fee = 0;
 
@@ -247,6 +309,14 @@ export default function WithdrawalPlanner({
 
       capital = capital + monthlyGrowth - actualWithdrawal - fee;
       accumulatedGrowth += monthlyGrowth;
+      
+      // Sprawdź czy kapitał zaczyna spadać poniżej poprzedniej wartości
+      if (i >= withdrawalPlan.startMonth && capital < previousCapital && capitalDeclineMonth === null) {
+        capitalDeclineMonth = i;
+      }
+      
+      // Zaktualizuj poprzedni kapitał dla następnej iteracji
+      previousCapital = capital;
 
       data.push({
         month: getMonthName(i),
@@ -254,15 +324,17 @@ export default function WithdrawalPlanner({
         withdrawal: actualWithdrawal,
         growth: monthlyGrowth,
         fee: fee,
-        warning: warning
+        warning: warning,
+        planned: plannedWithdrawal
       });
     }
 
     updateWithdrawalPlan({
       projectionData: data,
-      error: ''
+      error: '',
+      capitalDeclineMonth: capitalDeclineMonth
     });
-  }, [withdrawalPlan.monthlyWithdrawal, withdrawalPlan.startMonth, currentBalance, dailySignals, withdrawalPlan.projectionMonths, deposits, selectedCurrency, exchangeRates, withdrawalPlan.possibleStartMonth]);
+  }, [currentBalance, dailySignals, withdrawalPlan.monthlyWithdrawal, withdrawalPlan.startMonth, withdrawalPlan.projectionMonths, withdrawalPlan.possibleStartMonth, translations, selectedLanguage]);
 
   // Oblicz dzienny zysk
   useEffect(() => {
@@ -318,6 +390,13 @@ export default function WithdrawalPlanner({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">{translations[selectedLanguage].withdrawalPlanning}</h2>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={handleReset}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            title={translations[selectedLanguage].reset || "Reset"}
+          >
+            <RotateCcw size={20} />
+          </button>
           <div className="flex items-center space-x-2 bg-blue-50 p-3 rounded-lg">
             <Calendar className="text-blue-600" size={20} />
             <select
@@ -348,22 +427,19 @@ export default function WithdrawalPlanner({
                 if (parts.length > 2) return;
                 if (parts[1] && parts[1].length > 2) return;
                 
-                updateWithdrawalPlan({ inputValue: value });
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const value = parseFloat(e.target.value) || 0;
-                  updateWithdrawalPlan({
-                    inputValue: value.toFixed(2),
-                    monthlyWithdrawal: value / exchangeRates[selectedCurrency]
-                  });
-                }
+                const numericValue = parseFloat(value) || 0;
+                updateWithdrawalPlan({
+                  inputValue: value,
+                  monthlyWithdrawal: numericValue / exchangeRates[selectedCurrency],
+                  projectionData: [] // Wymuszamy przeliczenie projekcji
+                });
               }}
               onBlur={(e) => {
                 const value = parseFloat(e.target.value) || 0;
                 updateWithdrawalPlan({
                   inputValue: value.toFixed(2),
-                  monthlyWithdrawal: value / exchangeRates[selectedCurrency]
+                  monthlyWithdrawal: value / exchangeRates[selectedCurrency],
+                  projectionData: [] // Wymuszamy przeliczenie projekcji
                 });
               }}
               className="w-full p-2 border rounded-md pr-12"
@@ -376,11 +452,6 @@ export default function WithdrawalPlanner({
           <p className="text-sm text-gray-500 mt-1">
             {translations[selectedLanguage].valueInUSDT}: {withdrawalPlan.monthlyWithdrawal.toFixed(2)}
           </p>
-          {withdrawalPlan.possibleStartMonth > 0 && (
-            <p className="text-sm text-amber-600 mt-1">
-              {translations[selectedLanguage].withdrawalPossibleFrom}: {getMonthName(withdrawalPlan.possibleStartMonth)}
-            </p>
-          )}
           {withdrawalPlan.monthlyWithdrawal > 0 && (
             <div className="mt-2 p-3 bg-amber-50 rounded-lg">
               <div className="flex items-center">
@@ -395,10 +466,31 @@ export default function WithdrawalPlanner({
                   translations[selectedLanguage].standardFeeFullTurnover
                 }
               </p>
+              {withdrawalPlan.possibleStartMonth > 0 && withdrawalPlan.possibleStartMonth !== -1 && (
+                <div className="mt-2 flex items-center text-amber-600">
+                  <AlertTriangle className="mr-1" size={16} />
+                  <p className="text-sm">
+                    {withdrawalPlan.error}
+                  </p>
+                </div>
+              )}
+              {withdrawalPlan.possibleStartMonth === -1 && (
+                <div className="mt-2 flex items-center text-red-600">
+                  <AlertTriangle className="mr-1" size={16} />
+                  <p className="text-sm">
+                    {withdrawalPlan.error}
+                  </p>
+                </div>
+              )}
+              {withdrawalPlan.capitalDeclineMonth && withdrawalPlan.monthlyWithdrawal > 0 && (
+                <div className="mt-2 flex items-center text-amber-600">
+                  <AlertTriangle className="mr-1" size={16} />
+                  <p className="text-sm">
+                    {translations[selectedLanguage].capitalDecline || 'Kapitał zacznie maleć od'}: {getMonthName(withdrawalPlan.capitalDeclineMonth)}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-          {withdrawalPlan.error && (
-            <p className="text-sm text-red-500 mt-1">{withdrawalPlan.error}</p>
           )}
         </div>
         <div>
@@ -407,27 +499,33 @@ export default function WithdrawalPlanner({
           </label>
           <select
             value={withdrawalPlan.startMonth}
-            onChange={(e) => updateWithdrawalPlan({ startMonth: Number(e.target.value) })}
+            onChange={(e) => {
+              const newStartMonth = Number(e.target.value);
+              updateWithdrawalPlan({ 
+                startMonth: newStartMonth,
+                projectionData: [] // Wymuszamy przeliczenie projekcji
+              });
+            }}
             className={`w-full p-2 border rounded-md ${withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth ? 'border-red-500' : ''}`}
           >
-            <option value={0} disabled={withdrawalPlan.possibleStartMonth > 0}>
+            <option 
+              value={0} 
+              disabled={withdrawalPlan.possibleStartMonth !== 0}
+            >
               {translations[selectedLanguage].immediately}
+              {withdrawalPlan.possibleStartMonth !== 0 && ` (${translations[selectedLanguage].tooEarly})`}
             </option>
             {Array.from({ length: 12 }, (_, i) => (
               <option 
                 key={i + 1} 
                 value={i + 1}
-                disabled={i + 1 < withdrawalPlan.possibleStartMonth}
+                disabled={withdrawalPlan.possibleStartMonth > 0 && i + 1 < withdrawalPlan.possibleStartMonth}
               >
-                {getMonthName(i + 1)} {i + 1 < withdrawalPlan.possibleStartMonth ? `(${translations[selectedLanguage].tooEarly})` : ''}
+                {getMonthName(i + 1)}
+                {withdrawalPlan.possibleStartMonth > 0 && i + 1 < withdrawalPlan.possibleStartMonth && ` (${translations[selectedLanguage].tooEarly})`}
               </option>
             ))}
           </select>
-          {withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth && (
-            <p className="text-sm text-red-500 mt-1">
-              {translations[selectedLanguage].chooseLaterMonth}
-            </p>
-          )}
         </div>
       </div>
 
@@ -438,6 +536,7 @@ export default function WithdrawalPlanner({
               ...item,
               capital: item.capital * exchangeRates[selectedCurrency],
               withdrawal: item.withdrawal * exchangeRates[selectedCurrency],
+              planned: item.planned * exchangeRates[selectedCurrency],
               growth: item.growth * exchangeRates[selectedCurrency],
               month: item.month
             }))}
@@ -475,7 +574,7 @@ export default function WithdrawalPlanner({
             />
             <Line 
               type="monotone" 
-              dataKey="withdrawal" 
+              dataKey="planned" 
               stroke="#EF4444" 
               name={`${translations[selectedLanguage].withdrawals} (${selectedCurrency})`}
               dot={false}

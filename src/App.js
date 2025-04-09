@@ -263,6 +263,11 @@ const App = () => {
       planLoaded: 'Plan został wczytany',
       savePlan: 'Zapisz plan',
       loadPlan: 'Wczytaj plan',
+      reset: 'Resetuj plan',
+      withdrawalNotPossible: 'Ta kwota wypłaty nie będzie możliwa do osiągnięcia w ciągu najbliższych 5 lat',
+      capitalDepletion: 'Suma wypłat przekroczy początkowy kapitał w',
+      capitalDecline: 'Kapitał zacznie maleć od',
+      tooEarly: 'za wcześnie',
     },
     en: {
       appName: 'Investment Tracker',
@@ -361,6 +366,11 @@ const App = () => {
       planLoaded: 'Plan has been loaded',
       savePlan: 'Save plan',
       loadPlan: 'Load plan',
+      reset: 'Reset plan',
+      withdrawalNotPossible: 'This withdrawal amount will not be achievable within the next 5 years',
+      capitalDepletion: 'Total withdrawals will exceed initial capital in',
+      capitalDecline: 'Capital will start decreasing from',
+      tooEarly: 'too early',
     }
   };
 
@@ -533,30 +543,24 @@ const App = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      {!isAuthenticated ? (
-        <Auth setIsAuthenticated={setIsAuthenticated} setUser={setUser} />
-      ) : (
-        <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen bg-gray-100">
+      {isAuthenticated && (
+        <>
           {/* Nagłówek */}
           <header className="bg-blue-600 text-white shadow-md mobile-header">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-col p-4 header-content">
+                {/* Górny pasek z logo i przyciskami */}
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center space-x-4">
                     <img src="/logo.svg" alt="Logo" className="w-10 h-10" />
                     <h1 className="text-xl font-bold">{translations[selectedLanguage].appName}</h1>
                   </div>
                   
-                  <div className="flex space-x-3 language-currency-logout">
+                  <div className="flex space-x-3">
                     <button 
                       className="bg-blue-700 p-2 rounded-full hover:bg-blue-800 transition-colors relative group"
-                      onClick={() => {
-                        const newLanguage = selectedLanguage === 'pl' ? 'en' : 'pl';
-                        const newCurrency = newLanguage === 'pl' ? 'PLN' : 'EUR';
-                        setSelectedLanguage(newLanguage);
-                        setSelectedCurrency(newCurrency);
-                      }}
+                      onClick={() => setSelectedLanguage(selectedLanguage === 'pl' ? 'en' : 'pl')}
                       title={selectedLanguage === 'pl' ? 'Switch to English' : 'Przełącz na polski'}
                     >
                       <div className="w-6 h-6 rounded-full overflow-hidden shadow-md border border-gray-300">
@@ -573,61 +577,58 @@ const App = () => {
                   </div>
                 </div>
                 
+                {/* Stan konta w osobnym kontenerze */}
                 <div className="w-full text-white bg-blue-800 px-4 py-2 rounded-lg flex items-center justify-between">
-                  {isEditingBalance ? (
-                    <div className="flex items-center space-x-2 w-full">
-                      <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
-                      <input
-                        type="number"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        className="w-32 p-1 text-gray-800 border rounded"
-                        step="0.01"
-                        min="0"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => {
-                          const newBalance = parseFloat(editValue);
-                          if (!isNaN(newBalance) && newBalance >= 0) {
-                            updateBalance(newBalance);
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
+                    {isEditingBalance ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              updateBalance(parseFloat(editValue));
+                              setIsEditingBalance(false);
+                            }
+                          }}
+                          onBlur={() => {
+                            updateBalance(parseFloat(editValue));
                             setIsEditingBalance(false);
-                            setEditValue('');
-                          }
-                        }}
-                        className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingBalance(false);
-                          setEditValue('');
-                        }}
-                        className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <span className="text-sm mr-2">{translations[selectedLanguage].balance}:</span>
-                        <span className="text-lg font-semibold text-white">{currentBalance.toFixed(2)} USDT</span>
-                        <span className="text-sm text-blue-200 ml-1">({(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency})</span>
+                          }}
+                          className="w-32 p-1 text-gray-800 border rounded"
+                          step="0.01"
+                          min="0"
+                          autoFocus
+                        />
+                        <span className="font-bold">USDT</span>
                       </div>
-                      <button 
-                        onClick={() => {
-                          setEditValue(currentBalance.toString());
-                          setIsEditingBalance(true);
-                        }}
-                        className="p-1 hover:bg-blue-700 rounded-full transition-colors ml-2"
-                        title={translations[selectedLanguage].editBalance}
-                      >
-                        <Pencil className="text-white" size={16} />
-                      </button>
-                    </>
-                  )}
+                    ) : (
+                      <div className="flex items-center">
+                        <div 
+                          className="flex items-center cursor-pointer hover:opacity-80"
+                          onClick={() => {
+                            setEditValue(currentBalance.toString());
+                            setIsEditingBalance(true);
+                          }}
+                        >
+                          <span className="text-lg font-semibold">{currentBalance.toFixed(2)} USDT</span>
+                          <span className="text-sm text-blue-200 ml-2">({(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency})</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditValue(currentBalance.toString());
+                            setIsEditingBalance(true);
+                          }}
+                          className="p-1 hover:bg-blue-700 rounded-full transition-colors ml-2"
+                          title={translations[selectedLanguage].editBalance}
+                        >
+                          <Pencil className="text-white" size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -838,7 +839,7 @@ const App = () => {
               <span>{translations[selectedLanguage].depositPlanning}</span>
             </button>
           </nav>
-        </div>
+        </>
       )}
     </div>
   );
