@@ -1,0 +1,12 @@
+{
+  "name": "cors-proxy-server",
+  "version": "1.0.0",
+  "description": "CORS proxy for development",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js"
+  },
+  "dependencies": {
+    "cors-anywhere": "^0.4.4"
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, Calendar, TrendingUp, Clock, CalendarDays, Pencil } from 'lucide-react';
 
@@ -26,8 +26,8 @@ const Dashboard = ({
   const [isEditingSignals, setIsEditingSignals] = useState(false);
   const [editSignalsValue, setEditSignalsValue] = useState('3');
 
-  // Funkcja do generowania nazw miesięcy
-  const getMonthNames = (months) => {
+  // Funkcja do generowania nazw miesięcy za pomocą useCallback
+  const getMonthNames = useCallback((months) => {
     const monthNames = {
       pl: ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
            'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
@@ -44,42 +44,20 @@ const Dashboard = ({
     }
     
     return result;
-  };
+  }, [selectedLanguage]);
   
-  // Efekt do generowania danych projekcji
+  // Używamy tylko jednego useEffect do generowania danych projekcji i obliczania statystyk
   useEffect(() => {
     if (currentBalance <= 0) {
       setProjectionData([]);
+      setProfitStats({
+        totalProfit: 0,
+        dailyProfit: 0,
+        monthlyProfit: 0
+      });
       return;
     }
 
-    const data = [];
-    const dailyReturn = 0.006 * dailySignals;
-    let capital = currentBalance;
-    
-    // Punkt początkowy
-    data.push({
-      month: translations[selectedLanguage].currently || 'Now',
-      capital: capital
-    });
-    
-    // Generuj dane dla każdego miesiąca
-    for (let month = 1; month <= projectionMonths; month++) {
-      for (let day = 1; day <= 30; day++) {
-        capital += capital * dailyReturn;
-      }
-      
-      data.push({
-        month: getMonthNames(month),
-        capital: capital
-      });
-    }
-    
-    setProjectionData(data);
-  }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage, getMonthNames]);
-  
-  // Obliczanie dziennego i miesięcznego zysku z wzrostem złożonym
-  useEffect(() => {
     const dailyReturn = 0.006 * dailySignals;
     const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1; // Wzrost złożony
     
@@ -125,7 +103,7 @@ const Dashboard = ({
       dailyProfit: dailyProfit,
       monthlyProfit: monthlyProfit
     });
-  }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage]);
+  }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage, getMonthNames]);
   
   // Funkcja do obliczania statusu obrotu dla wpłaty
   const calculateTurnoverStatus = (deposit) => {

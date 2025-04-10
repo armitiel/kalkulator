@@ -588,22 +588,41 @@ const App = () => {
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              updateBalance(parseFloat(editValue));
-                              setIsEditingBalance(false);
-                            }
-                          }}
-                          onBlur={() => {
-                            updateBalance(parseFloat(editValue));
-                            setIsEditingBalance(false);
-                          }}
                           className="w-32 p-1 text-gray-800 border rounded"
                           step="0.01"
                           min="0"
                           autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const newBalance = parseFloat(editValue);
+                              if (!isNaN(newBalance) && newBalance >= 0) {
+                                updateBalance(newBalance);
+                              }
+                              setIsEditingBalance(false);
+                            }
+                          }}
                         />
-                        <span className="font-bold">USDT</span>
+                        <button
+                          onClick={() => {
+                            const newBalance = parseFloat(editValue);
+                            if (!isNaN(newBalance) && newBalance >= 0) {
+                              updateBalance(newBalance);
+                            }
+                            setIsEditingBalance(false);
+                          }}
+                          className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingBalance(false);
+                            setEditValue(currentBalance.toString());
+                          }}
+                          className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center">
@@ -614,8 +633,8 @@ const App = () => {
                             setIsEditingBalance(true);
                           }}
                         >
-                          <span className="text-lg font-semibold">{currentBalance.toFixed(2)} USDT</span>
-                          <span className="text-sm text-blue-200 ml-2">({(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency})</span>
+                          <span className="text-lg font-semibold text-white">{currentBalance.toFixed(2)} USDT</span>
+                          <span className="text-sm text-white ml-2">({(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency})</span>
                         </div>
                         <button
                           onClick={() => {
@@ -676,59 +695,14 @@ const App = () => {
                       <div className="flex items-center justify-between">
                         <div className="w-full">
                           <p className="text-sm text-gray-600">{translations[selectedLanguage].balance}</p>
-                          {isEditingBalance ? (
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="number"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                className="w-32 p-1 text-xl font-bold border rounded"
-                                step="0.01"
-                                min="0"
-                                autoFocus
-                              />
-                              <button
-                                onClick={() => {
-                                  const newBalance = parseFloat(editValue);
-                                  if (!isNaN(newBalance) && newBalance >= 0) {
-                                    handlePortfolioUpdate('currentBalance', newBalance);
-                                    setIsEditingBalance(false);
-                                    setEditValue('');
-                                  }
-                                }}
-                                className="p-1 bg-green-500 text-white rounded hover:bg-green-600"
-                              >
-                                ✓
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setIsEditingBalance(false);
-                                  setEditValue('');
-                                }}
-                                className="p-1 bg-red-500 text-white rounded hover:bg-red-600"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ) : (
-                            <div 
-                              className="flex items-center space-x-2 cursor-pointer group hover:bg-indigo-100 p-2 rounded-lg transition-colors"
-                              onClick={() => {
-                                setEditValue(currentBalance.toString());
-                                setIsEditingBalance(true);
-                              }}
-                            >
-                              <div>
-                                <p className="text-2xl font-bold group-hover:text-blue-600 transition-colors">
-                                  {currentBalance.toFixed(2)} USDT
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}
-                                </p>
-                              </div>
-                              <Pencil className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
-                            </div>
-                          )}
+                          <div>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {currentBalance.toFixed(2)} USDT
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {(currentBalance * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}
+                            </p>
+                          </div>
                         </div>
                         <DollarSign className="text-indigo-500" />
                       </div>
@@ -738,9 +712,9 @@ const App = () => {
 
                 <Dashboard
                   currentBalance={currentBalance}
-                  updateBalance={setCurrentBalance}
+                  updateBalance={updateBalance}
                   dailySignals={dailySignals}
-                  updateDailySignals={setDailySignals}
+                  updateDailySignals={updateDailySignals}
                   selectedCurrency={selectedCurrency}
                   exchangeRates={exchangeRates}
                   translations={translations}

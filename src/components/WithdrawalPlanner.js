@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, Calendar, AlertTriangle, RotateCcw } from 'lucide-react';
 
@@ -13,24 +13,41 @@ export default function WithdrawalPlanner({
   translations,
   selectedLanguage
 }) {
+  // Dodajemy referencję do poprzedniego stanu, aby zapobiec zbędnym aktualizacjom
+  const prevPlanRef = useRef(withdrawalPlan);
+  
   // Funkcje pomocnicze do aktualizacji stanu
-  const updateWithdrawalPlan = (updates) => {
+  const updateWithdrawalPlan = useCallback((updates) => {
+    // Sprawdzamy, czy faktycznie doszło do zmiany
     const newPlan = {
       ...withdrawalPlan,
       ...updates
     };
-    setWithdrawalPlan(newPlan);
     
-    // Zapisz do localStorage tylko potrzebne dane, bez projectionData
-    const planToSave = {
-      ...newPlan,
-      projectionData: [] // Nie zapisujemy danych projekcji
-    };
-    localStorage.setItem('withdrawalPlan', JSON.stringify(planToSave));
-  };
+    // Unikamy zbędnych aktualizacji stanu
+    const hasChanged = Object.keys(updates).some(key => {
+      // Jeśli to projectionData, sprawdzamy tylko długość
+      if (key === 'projectionData') {
+        return !newPlan.projectionData || !withdrawalPlan.projectionData || 
+               newPlan.projectionData.length !== withdrawalPlan.projectionData.length;
+      }
+      return JSON.stringify(newPlan[key]) !== JSON.stringify(withdrawalPlan[key]);
+    });
+    
+    if (hasChanged) {
+      setWithdrawalPlan(newPlan);
+      
+      // Zapisz do localStorage tylko potrzebne dane, bez projectionData
+      const planToSave = {
+        ...newPlan,
+        projectionData: [] // Nie zapisujemy danych projekcji
+      };
+      localStorage.setItem('withdrawalPlan', JSON.stringify(planToSave));
+    }
+  }, [withdrawalPlan, setWithdrawalPlan]);
 
   // Funkcja do generowania nazw miesięcy z rokiem
-  const getMonthName = (monthsAhead) => {
+  const getMonthName = useCallback((monthsAhead) => {
     const months = {
       pl: ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
            'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
@@ -42,17 +59,17 @@ export default function WithdrawalPlanner({
     const monthName = months[selectedLanguage][targetDate.getMonth()];
     const year = targetDate.getFullYear();
     return `${monthName} ${year}`;
-  };
+  }, [selectedLanguage]);
 
   // Oblicz minimalną możliwą wypłatę (20 000 PLN miesięcznie)
-  const calculateMinimalWithdrawal = () => {
+  const calculateMinimalWithdrawal = useCallback(() => {
     const dailyReturn = 0.006 * dailySignals; // 0.6% dziennego zwrotu na sygnał
     const monthlyGrowth = currentBalance * dailyReturn * 30; // 30 dni w miesiącu
     return 20000 / exchangeRates['PLN']; // Konwertuj 20 000 PLN na USDT
-  };
+  }, [currentBalance, dailySignals, exchangeRates]);
 
   // Oblicz miesiąc, od którego wypłata będzie możliwa
-  const calculatePossibleMonth = (withdrawalAmount) => {
+  const calculatePossibleMonth = useCallback((withdrawalAmount) => {
     const dailyReturn = 0.006 * dailySignals;
     let capital = currentBalance;
     let month = 1;
@@ -72,10 +89,10 @@ export default function WithdrawalPlanner({
     }
     
     return null; // Jeśli nie jest możliwe w ciągu roku
-  };
+  }, [currentBalance, dailySignals]);
 
   // Oblicz status obrotu dla wszystkich wpłat
-  const calculateTotalTurnoverStatus = (targetDate) => {
+  const calculateTotalTurnoverStatus = useCallback((targetDate) => {
     const ratePerSignal = 0.006; // 0,6% na sygnał
     const totalDailyRate = ratePerSignal * dailySignals;
     let totalDeposits = 0;
@@ -147,10 +164,10 @@ export default function WithdrawalPlanner({
       activeDeposits,
       hasActiveDeposits: activeDeposits.length > 0
     };
-  };
+  }, [currentBalance, dailySignals, deposits]);
 
   // Dodaj funkcję resetowania
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     updateWithdrawalPlan({
       monthlyWithdrawal: 0,
       inputValue: '',
@@ -161,10 +178,10 @@ export default function WithdrawalPlanner({
       withdrawalFee: { rate: 0.05, amount: 0 },
       possibleStartMonth: 0
     });
-  };
+  }, [updateWithdrawalPlan]);
 
   // Zmodyfikuj funkcję calculatePossibleStartMonth
-  const calculatePossibleStartMonth = (amount) => {
+  const calculatePossibleStartMonth = useCallback((amount) => {
     if (amount <= 0) return { month: 0, year: new Date().getFullYear() };
 
     const dailyReturn = 0.006 * dailySignals;
@@ -194,60 +211,83 @@ export default function WithdrawalPlanner({
     }
 
     return { month: -1, year: startDate.getFullYear() + 5 };
-  };
+  }, [currentBalance, dailySignals]);
 
   // Aktualizuj możliwy miesiąc przy zmianie kwoty
   useEffect(() => {
+    // Sprawdź, czy faktycznie coś się zmieniło, aby uniknąć nadmiarowych aktualizacji
+    if (prevPlanRef.current.monthlyWithdrawal === withdrawalPlan.monthlyWithdrawal &&
+        currentBalance === prevPlanRef.current.currentBalance &&
+        dailySignals === prevPlanRef.current.dailySignals) {
+      return;
+    }
+    
     const possibleDate = calculatePossibleStartMonth(withdrawalPlan.monthlyWithdrawal);
+    const updates = {};
     
     if (possibleDate.month === -1) {
-      updateWithdrawalPlan({
-        possibleStartMonth: possibleDate.month,
-        error: translations[selectedLanguage].withdrawalNotPossible
-      });
+      updates.possibleStartMonth = possibleDate.month;
+      updates.error = translations[selectedLanguage].withdrawalNotPossible;
       
       // Ustaw miesiąc początkowy na pierwszy miesiąc, jeśli obecny jest niedozwolony
       if (withdrawalPlan.startMonth === 0) {
-        updateWithdrawalPlan({
-          startMonth: 1
-        });
+        updates.startMonth = 1;
       }
     } else if (possibleDate.month > 0) {
       const monthText = getMonthName(possibleDate.month);
       const monthsText = translations[selectedLanguage].months[possibleDate.totalMonths > 4 ? 5 : possibleDate.totalMonths];
       const errorMessage = `${translations[selectedLanguage].withdrawalPossibleFrom}: ${monthText} (${possibleDate.totalMonths} ${monthsText})`;
       
-      updateWithdrawalPlan({
-        possibleStartMonth: possibleDate.month,
-        error: errorMessage
-      });
+      updates.possibleStartMonth = possibleDate.month;
+      updates.error = errorMessage;
       
       // Ustaw miesiąc początkowy na możliwy miesiąc, jeśli obecny jest niedozwolony
       if (withdrawalPlan.startMonth < possibleDate.month) {
-        updateWithdrawalPlan({
-          startMonth: possibleDate.month
-        });
+        updates.startMonth = possibleDate.month;
       }
     } else {
-      updateWithdrawalPlan({
-        possibleStartMonth: possibleDate.month,
-        error: ''
-      });
+      updates.possibleStartMonth = possibleDate.month;
+      updates.error = '';
     }
-  }, [withdrawalPlan.monthlyWithdrawal, currentBalance, dailySignals]);
+    
+    // Aktualizujemy tylko jeśli są zmiany
+    if (Object.keys(updates).length > 0) {
+      updateWithdrawalPlan(updates);
+    }
+    
+    // Aktualizuj referencję
+    prevPlanRef.current = {
+      ...withdrawalPlan,
+      currentBalance,
+      dailySignals
+    };
+  }, [withdrawalPlan.monthlyWithdrawal, calculatePossibleStartMonth, translations, selectedLanguage, getMonthName, updateWithdrawalPlan, withdrawalPlan.startMonth, currentBalance, dailySignals]);
 
   // Oblicz projekcję
   useEffect(() => {
+    // Sprawdź, czy trzeba przeliczać projekcję
+    if (prevPlanRef.current.monthlyWithdrawal === withdrawalPlan.monthlyWithdrawal &&
+        prevPlanRef.current.startMonth === withdrawalPlan.startMonth &&
+        prevPlanRef.current.projectionMonths === withdrawalPlan.projectionMonths &&
+        prevPlanRef.current.possibleStartMonth === withdrawalPlan.possibleStartMonth &&
+        currentBalance === prevPlanRef.current.currentBalance &&
+        dailySignals === prevPlanRef.current.dailySignals &&
+        withdrawalPlan.projectionData && 
+        withdrawalPlan.projectionData.length > 0) {
+      return;
+    }
+    
     if (withdrawalPlan.monthlyWithdrawal <= 0) {
-      updateWithdrawalPlan({
-        projectionData: [],
-        error: ''
-      });
+      if (!withdrawalPlan.projectionData || withdrawalPlan.projectionData.length > 0) {
+        updateWithdrawalPlan({
+          projectionData: [],
+          error: ''
+        });
+      }
       return;
     }
 
     const dailyReturn = 0.006 * dailySignals;
-    // Wzrost złożony miesięczny: (1 + dailyReturn)^30 - 1
     const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1;
     
     if (withdrawalPlan.startMonth < withdrawalPlan.possibleStartMonth && withdrawalPlan.possibleStartMonth !== -1) {
@@ -334,17 +374,37 @@ export default function WithdrawalPlanner({
       error: '',
       capitalDeclineMonth: capitalDeclineMonth
     });
-  }, [currentBalance, dailySignals, withdrawalPlan.monthlyWithdrawal, withdrawalPlan.startMonth, withdrawalPlan.projectionMonths, withdrawalPlan.possibleStartMonth, translations, selectedLanguage]);
+    
+    // Aktualizuj referencję
+    prevPlanRef.current = {
+      ...withdrawalPlan,
+      currentBalance,
+      dailySignals
+    };
+  }, [currentBalance, dailySignals, withdrawalPlan.monthlyWithdrawal, withdrawalPlan.startMonth, withdrawalPlan.projectionMonths, withdrawalPlan.possibleStartMonth, getMonthName, calculateTotalTurnoverStatus, translations, selectedLanguage, updateWithdrawalPlan]);
 
   // Oblicz dzienny zysk
   useEffect(() => {
+    // Unikaj zbędnych aktualizacji
+    if (prevPlanRef.current.dailyProfit === currentBalance * 0.006 * dailySignals) {
+      return;
+    }
+    
     const dailyReturn = 0.006; // 0.6% dziennego zwrotu
     const profit = currentBalance * dailyReturn * dailySignals;
     updateWithdrawalPlan({ dailyProfit: profit });
-  }, [currentBalance, dailySignals]);
+    
+    // Aktualizuj referencję
+    prevPlanRef.current = {
+      ...withdrawalPlan,
+      dailyProfit: profit,
+      currentBalance,
+      dailySignals
+    };
+  }, [currentBalance, dailySignals, updateWithdrawalPlan]);
 
   // Oblicz opłatę za wypłatę
-  const calculateWithdrawalFee = (amount) => {
+  const calculateWithdrawalFee = useCallback((amount) => {
     if (amount <= 0) return { rate: 0.05, amount: 0 };
     
     // Sprawdź status obrotu na datę pierwszej wypłaty
@@ -359,13 +419,13 @@ export default function WithdrawalPlanner({
     } else {
       return { rate: 0.05, amount: amount * 0.05 }; // 5% opłaty
     }
-  };
+  }, [calculateTotalTurnoverStatus, withdrawalPlan.startMonth]);
 
   // Aktualizuj opłatę przy zmianie kwoty wypłaty
   useEffect(() => {
     const fee = calculateWithdrawalFee(withdrawalPlan.monthlyWithdrawal);
     updateWithdrawalPlan({ withdrawalFee: fee });
-  }, [withdrawalPlan.monthlyWithdrawal, deposits, dailySignals, withdrawalPlan.startMonth]);
+  }, [withdrawalPlan.monthlyWithdrawal, calculateWithdrawalFee, updateWithdrawalPlan]);
 
   const chartData = {
     labels: withdrawalPlan.projectionData.map(data => data.month),
