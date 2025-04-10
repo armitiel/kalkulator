@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Settings, TrendingUp, DollarSign, Calendar, BarChart2, PieChart, AlertTriangle, Clock, LogOut, ArrowUpRight, TrendingDown, Pencil, Lightbulb } from 'lucide-react';
+import { Settings, TrendingUp, DollarSign, Calendar, BarChart2, Pencil, Lightbulb, LogOut, Clock, AlertTriangle } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import InvestmentHistory from './components/InvestmentHistory';
 import WithdrawalPlanner from './components/WithdrawalPlanner';
 import Auth from './components/Auth';
 import { getPortfolio, getTransactions, updatePortfolio } from './api';
-import Deposits from './components/Deposits';
 import './App.css';
 
 // Komponenty SVG dla flag
@@ -127,22 +125,25 @@ const App = () => {
   }, [currentBalance, dailySignals]);
 
   // Stan dla danych historycznych
-  const [capitalData, setCapitalData] = useState([
+  const capitalData = [
     { date: '01.03.2024', amount: 5000 },
     { date: '15.03.2024', amount: 5500 },
     { date: '31.03.2024', amount: 6200 },
     { date: '15.04.2024', amount: 7000 },
     { date: '30.04.2024', amount: 7392.74 },
-  ]);
+  ];
 
   const [deposits, setDeposits] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]);
 
   const [selectedCurrency, setSelectedCurrency] = useState('PLN');
   const [selectedLanguage, setSelectedLanguage] = useState('pl');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState('');
   const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  // Ustaw domyślną walutę w zależności od języka
+  useEffect(() => {
+    setSelectedCurrency(selectedLanguage === 'pl' ? 'PLN' : 'EUR');
+  }, [selectedLanguage]);
 
   // Stan dla planera wypłat - inicjalizacja z localStorage
   const [withdrawalPlan, setWithdrawalPlan] = useState(() => {
@@ -205,7 +206,6 @@ const App = () => {
       standardFeeFullTurnover: 'Standardowa opłata - pełny obrót środków',
       startWithdrawalsFromMonth: 'Rozpocznij wypłaty od miesiąca',
       immediately: 'Natychmiast',
-      tooEarly: 'za wcześnie',
       chooseLaterMonth: 'Wybierz późniejszy miesiąc - kapitał musi wzrosnąć',
       month: 'Miesiąc',
       capital: 'Kapitał',
@@ -268,6 +268,7 @@ const App = () => {
       capitalDepletion: 'Suma wypłat przekroczy początkowy kapitał w',
       capitalDecline: 'Kapitał zacznie maleć od',
       tooEarly: 'za wcześnie',
+      profitStatistics: 'Statystyki zysków',
     },
     en: {
       appName: 'Investment Tracker',
@@ -308,7 +309,6 @@ const App = () => {
       standardFeeFullTurnover: 'Standard fee - full turnover',
       startWithdrawalsFromMonth: 'Start withdrawals from month',
       immediately: 'Immediately',
-      tooEarly: 'too early',
       chooseLaterMonth: 'Choose a later month - capital needs to grow',
       month: 'Month',
       capital: 'Capital',
@@ -371,6 +371,7 @@ const App = () => {
       capitalDepletion: 'Total withdrawals will exceed initial capital in',
       capitalDecline: 'Capital will start decreasing from',
       tooEarly: 'too early',
+      profitStatistics: 'Profit Statistics',
     }
   };
 
@@ -493,7 +494,7 @@ const App = () => {
     const newBalance = parseFloat(editValue);
     if (!isNaN(newBalance) && newBalance >= 0) {
       updateBalance(newBalance);
-      setIsEditing(false);
+      setIsEditingBalance(false);
     }
   };
 
@@ -553,7 +554,7 @@ const App = () => {
                 {/* Górny pasek z logo i przyciskami */}
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center space-x-4">
-                    <img src="/logo.svg" alt="Logo" className="w-10 h-10" />
+                    <img src="/logo.svg" alt="Logo" className="w-12 h-12" />
                     <h1 className="text-xl font-bold">{translations[selectedLanguage].appName}</h1>
                   </div>
                   
