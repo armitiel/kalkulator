@@ -5,7 +5,7 @@ import InvestmentHistory from './components/InvestmentHistory';
 import WithdrawalPlanner from './components/WithdrawalPlanner';
 import Auth from './components/Auth';
 import { getPortfolio, getTransactions, updatePortfolio } from './api';
-import './App.css';
+import './App.css?v=20240618';
 
 // Komponenty SVG dla flag
 const PolishFlag = () => (

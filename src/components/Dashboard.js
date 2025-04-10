@@ -46,6 +46,38 @@ const Dashboard = ({
     return result;
   };
   
+  // Efekt do generowania danych projekcji
+  useEffect(() => {
+    if (currentBalance <= 0) {
+      setProjectionData([]);
+      return;
+    }
+
+    const data = [];
+    const dailyReturn = 0.006 * dailySignals;
+    let capital = currentBalance;
+    
+    // Punkt początkowy
+    data.push({
+      month: translations[selectedLanguage].currently || 'Now',
+      capital: capital
+    });
+    
+    // Generuj dane dla każdego miesiąca
+    for (let month = 1; month <= projectionMonths; month++) {
+      for (let day = 1; day <= 30; day++) {
+        capital += capital * dailyReturn;
+      }
+      
+      data.push({
+        month: getMonthNames(month),
+        capital: capital
+      });
+    }
+    
+    setProjectionData(data);
+  }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage, getMonthNames]);
+  
   // Obliczanie dziennego i miesięcznego zysku z wzrostem złożonym
   useEffect(() => {
     const dailyReturn = 0.006 * dailySignals;
@@ -188,39 +220,42 @@ const Dashboard = ({
       </div>
 
       {/* Statystyki zysków */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-4">Statystyki zysków</h2>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6 dashboard-stats">
+        <h2 className="text-xl font-bold mb-4">{translations[selectedLanguage].profitStatistics}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
+          {/* Całkowity zysk */}
+          <div className="bg-blue-50/50 p-4 rounded-lg border-2 border-blue-100 dashboard-stats-card dashboard-stats-total">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{translations[selectedLanguage].totalProfit}</p>
-                <p className="text-2xl font-bold">{profitStats.totalProfit.toFixed(2)} USDT</p>
+                <p className="text-2xl font-bold text-blue-600 !text-blue-600 dashboard-stats-value">{profitStats.totalProfit.toFixed(2)} USDT</p>
                 <p className="text-sm text-gray-500">{(profitStats.totalProfit * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
               </div>
-              <TrendingUp className="text-blue-500" />
+              <TrendingUp className="text-blue-500 !text-blue-500 dashboard-stats-icon" size={24} />
             </div>
           </div>
 
-          <div className="bg-green-50 p-4 rounded-lg">
+          {/* Średni dzienny zysk */}
+          <div className="bg-green-50/50 p-4 rounded-lg border-2 border-green-100 dashboard-stats-card dashboard-stats-daily">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyAverage}</p>
-                <p className="text-2xl font-bold">{(profitStats.totalProfit / (projectionMonths * 30)).toFixed(2)} USDT</p>
-                <p className="text-sm text-gray-500">{((profitStats.totalProfit / (projectionMonths * 30)) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                <p className="text-sm text-gray-600">{translations[selectedLanguage].dailyProfit}</p>
+                <p className="text-2xl font-bold text-green-600 !text-green-600 dashboard-stats-value">{profitStats.dailyProfit.toFixed(2)} USDT</p>
+                <p className="text-sm text-gray-500">{(profitStats.dailyProfit * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
               </div>
-              <Clock className="text-green-500" />
+              <Clock className="text-green-500 !text-green-500 dashboard-stats-icon" size={24} />
             </div>
           </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg">
+          {/* Miesięczny zysk */}
+          <div className="bg-purple-50/50 p-4 rounded-lg border-2 border-purple-100 dashboard-stats-card dashboard-stats-monthly">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">{translations[selectedLanguage].monthlyProfit}</p>
-                <p className="text-2xl font-bold">{(profitStats.totalProfit / projectionMonths).toFixed(2)} USDT</p>
-                <p className="text-sm text-gray-500">{((profitStats.totalProfit / projectionMonths) * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
+                <p className="text-2xl font-bold text-purple-600 !text-purple-600 dashboard-stats-value">{profitStats.monthlyProfit.toFixed(2)} USDT</p>
+                <p className="text-sm text-gray-500">{(profitStats.monthlyProfit * exchangeRates[selectedCurrency]).toFixed(2)} {selectedCurrency}</p>
               </div>
-              <CalendarDays className="text-purple-500" />
+              <CalendarDays className="text-purple-500 !text-purple-500 dashboard-stats-icon" size={24} />
             </div>
           </div>
         </div>
