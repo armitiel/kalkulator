@@ -61,16 +61,12 @@ const Dashboard = ({
     const dailyReturn = 0.006 * dailySignals;
     const monthlyReturn = Math.pow(1 + dailyReturn, 30) - 1; // Wzrost złożony
     
-    // Dzienny zysk
-    const dailyProfit = currentBalance * dailyReturn;
-    
-    // Miesięczny zysk (złożony)
-    const monthlyProfit = currentBalance * monthlyReturn;
-    
     // Projekcja na wybrane miesiące
     const monthNames = getMonthNames(projectionMonths);
     const data = [];
     let totalGrowth = 0;
+    let totalDailyProfits = 0;
+    let totalMonthlyProfits = 0;
     
     // Punkt początkowy
     data.push({
@@ -86,6 +82,13 @@ const Dashboard = ({
       const newCapital = capital + monthlyGrowth;
       totalGrowth += monthlyGrowth;
       
+      // Oblicz dzienny i miesięczny zysk dla tego miesiąca
+      const dailyProfitForMonth = capital * dailyReturn;
+      const monthlyProfitForMonth = monthlyGrowth;
+      
+      totalDailyProfits += dailyProfitForMonth;
+      totalMonthlyProfits += monthlyProfitForMonth;
+      
       data.push({
         month: monthNames[i - 1],
         capital: newCapital,
@@ -97,11 +100,11 @@ const Dashboard = ({
     
     setProjectionData(data);
     
-    // Statystyki zysków
+    // Statystyki zysków - średnie z wybranego okresu
     setProfitStats({
       totalProfit: totalGrowth,
-      dailyProfit: dailyProfit,
-      monthlyProfit: monthlyProfit
+      dailyProfit: totalDailyProfits / projectionMonths, // Średni dzienny zysk
+      monthlyProfit: totalMonthlyProfits / projectionMonths // Średni miesięczny zysk
     });
   }, [currentBalance, dailySignals, projectionMonths, translations, selectedLanguage, getMonthNames]);
   
